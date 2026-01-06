@@ -57,9 +57,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
     const models = await fetchRemoteModels(config.provider, config.apiKeys[config.provider], config.ollamaBaseUrl);
     if (models && models.length > 0) {
       setDynamicModels(models);
+      // Auto-select first model if current one isn't in the new list
+      if (!models.some(m => m.id === config.model)) {
+          onChange({ ...config, model: models[0].id });
+      }
     }
     setIsFetchingModels(false);
-  }, [config.provider, config.apiKeys, config.ollamaBaseUrl, isOpen]);
+  }, [config.provider, config.apiKeys, config.ollamaBaseUrl, isOpen, config.model, onChange]);
 
   useEffect(() => {
     if (isOpen) {
@@ -201,7 +205,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
                     key={p.id}
                     onClick={() => {
                         setDynamicModels([]);
-                        onChange({ ...config, provider: p.id, model: (STATIC_MODELS[p.id]?.[0].id || config.model) });
+                        // When switching providers, set the first static model OR a reasonable default
+                        const defaultModel = STATIC_MODELS[p.id]?.[0].id || (p.id === 'groq' ? 'llama-3.1-70b-versatile' : (p.id === 'openrouter' ? 'auto' : 'default'));
+                        onChange({ ...config, provider: p.id, model: defaultModel });
                     }}
                     className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-all ${
                       config.provider === p.id 

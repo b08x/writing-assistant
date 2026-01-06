@@ -19,7 +19,6 @@ import {
 } from './services/aiAdapter';
 import {
   generateImagesFromPrompt,
-  generateStoryFromPrompt,
   generateVideosFromPrompt
 } from './services/geminiService';
 import { BeliefState, Clarification, GraphUpdate, Attribute, ProviderConfig, PromptHistoryItem } from './types';
@@ -190,6 +189,10 @@ function App() {
         .then(graphStructure => {
             if (isCurrent()) if (graphStructure) setBeliefGraph(graphStructure);
         })
+        .catch(err => {
+            console.error("Belief Graph Analysis Failed:", err);
+            if (isCurrent()) handleStatusUpdate(`Analysis partially failed: ${err.message || "Endpoint error"}`);
+        })
         .finally(() => {
             if (isCurrent()) {
                 setIsGraphLoading(false);
@@ -201,6 +204,10 @@ function App() {
         .then(generatedClarifications => {
             if (isCurrent()) setClarifications(generatedClarifications);
         })
+        .catch(err => {
+            console.error("Clarification Generation Failed:", err);
+            // Non-blocking error for UI
+        })
         .finally(() => {
              if (isCurrent()) setIsClarificationsLoading(false);
         });
@@ -209,7 +216,7 @@ function App() {
          setLastAnalyzedPrompt(currentPrompt);
          setLastAnalyzedMode(currentMode);
     }
-    return Promise.all([graphPromise, clarificationPromise]);
+    return Promise.allSettled([graphPromise, clarificationPromise]);
   }, [handleStatusUpdate, modelConfig]);
 
   const handleRefreshClarifications = useCallback(() => {
@@ -288,17 +295,18 @@ function App() {
                     }
                 } else if (requestMode === 'story') {
                     try {
-                        // FIX: Use adapter dispatcher for story generation to support multi-provider and correct 404 handling
                         const generatedStory = await generateStory(currentPrompt, modelConfig, safeGenStatusUpdate);
                         if (isGenCurrent()) setStory(generatedStory);
                     } catch (storyError: any) {
                         const errorText = storyError.message || JSON.stringify(storyError);
+                        // Check if it's a Gemini-specific 404 (model/project mismatch)
                         if (errorText.includes("Requested entity was not found") && modelConfig.provider === 'gemini') {
                             if (isGenCurrent()) setRequiresApiKey(true);
-                        } else throw storyError;
+                        } else {
+                            throw storyError;
+                        }
                     }
                 } else if (requestMode === 'video') {
-                    // Pre-check for selected API key
                     const win = window as any;
                     if (win.aistudio && win.aistudio.hasSelectedApiKey) {
                         const hasKey = await win.aistudio.hasSelectedApiKey();
@@ -316,19 +324,14 @@ function App() {
                       if (isGenCurrent()) setVideo(generatedVideo);
                     } catch (videoError: any) {
                       const errorText = videoError.message || JSON.stringify(videoError);
-                      // Requirement: Check for "Requested entity was not found." specifically
                       if (errorText.includes("Requested entity was not found")) {
-                        if (isGenCurrent()) {
-                          setRequiresApiKey(true);
-                        }
-                      } else {
-                        throw videoError;
-                      }
+                        if (isGenCurrent()) setRequiresApiKey(true);
+                      } else throw videoError;
                     }
                 }
             } catch (error: any) {
                 if (isGenCurrent()) {
-                    setGalleryErrors(prev => ({ ...prev, [requestMode]: error.message || "An unexpected error occurred." }));
+                    setGalleryErrors(prev => ({ ...prev, [requestMode]: error.message || "An unexpected error occurred during generation." }));
                 }
             } finally {
                 if (isGenCurrent()) {
@@ -338,7 +341,7 @@ function App() {
             }
         })();
     }
-    await Promise.all([analysisPromise, generationPromise]);
+    await Promise.allSettled([analysisPromise, generationPromise]);
   }, [refreshAnalysis, handleStatusUpdate, modelConfig, addToHistory]);
 
   const handlePromptSubmit = useCallback(() => {
