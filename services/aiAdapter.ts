@@ -76,7 +76,10 @@ const standardRequest = async (url: string, key: string, model: string, prompt: 
       ]
     })
   });
-  if (!response.ok) throw new Error(`API error: ${response.statusText}`);
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.error?.message || `API error: ${response.statusText}`);
+  }
   const data = await response.json();
   return data.choices[0].message.content;
 };
@@ -155,4 +158,29 @@ export const refinePrompt = async (
     return await standardRequest(`${baseUrl}/v1/chat/completions`, userKey, config.model, userPrompt);
   }
   return originalPrompt;
+};
+
+/**
+ * Dispatches story generation to the correct provider
+ */
+export const generateStory = async (
+  prompt: string,
+  config: ProviderConfig,
+  onStatusUpdate?: StatusUpdateCallback
+): Promise<string> => {
+  if (config.provider === 'gemini') {
+    return gemini.generateStoryFromPrompt(prompt, onStatusUpdate, config.model);
+  }
+  
+  const userPrompt = `Write a short, creative story based on: "${prompt}"`;
+  const userKey = config.apiKeys[config.provider];
+
+  if (config.provider === 'mistral') return await mistralRequest(userPrompt, config.model, undefined, userKey);
+  if (config.provider === 'openrouter') return await openRouterRequest(userPrompt, config.model, undefined, userKey);
+  if (config.provider === 'groq') return await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey || process.env.GROQ_API_KEY || '', config.model, userPrompt);
+  if (config.provider === 'olm') {
+    const baseUrl = config.ollamaBaseUrl || process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+    return await standardRequest(`${baseUrl}/v1/chat/completions`, userKey, config.model, userPrompt);
+  }
+  return prompt;
 };

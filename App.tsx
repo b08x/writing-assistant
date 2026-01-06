@@ -14,7 +14,8 @@ import SettingsModal from './components/SettingsModal';
 import {
   generateBeliefGraph,
   generateClarifications,
-  refinePrompt
+  refinePrompt,
+  generateStory
 } from './services/aiAdapter';
 import {
   generateImagesFromPrompt,
@@ -276,11 +277,26 @@ function App() {
         generationPromise = (async () => {
             try {
                 if (requestMode === 'image') {
-                    const generatedImages = await generateImagesFromPrompt(currentPrompt, safeGenStatusUpdate, modelConfig.model);
-                    if (isGenCurrent()) setImages(generatedImages);
+                    try {
+                        const generatedImages = await generateImagesFromPrompt(currentPrompt, safeGenStatusUpdate, modelConfig.model);
+                        if (isGenCurrent()) setImages(generatedImages);
+                    } catch (imageError: any) {
+                        const errorText = imageError.message || JSON.stringify(imageError);
+                        if (errorText.includes("Requested entity was not found") && modelConfig.provider === 'gemini') {
+                            if (isGenCurrent()) setRequiresApiKey(true);
+                        } else throw imageError;
+                    }
                 } else if (requestMode === 'story') {
-                    const generatedStory = await generateStoryFromPrompt(currentPrompt, safeGenStatusUpdate, modelConfig.model);
-                    if (isGenCurrent()) setStory(generatedStory);
+                    try {
+                        // FIX: Use adapter dispatcher for story generation to support multi-provider and correct 404 handling
+                        const generatedStory = await generateStory(currentPrompt, modelConfig, safeGenStatusUpdate);
+                        if (isGenCurrent()) setStory(generatedStory);
+                    } catch (storyError: any) {
+                        const errorText = storyError.message || JSON.stringify(storyError);
+                        if (errorText.includes("Requested entity was not found") && modelConfig.provider === 'gemini') {
+                            if (isGenCurrent()) setRequiresApiKey(true);
+                        } else throw storyError;
+                    }
                 } else if (requestMode === 'video') {
                     // Pre-check for selected API key
                     const win = window as any;

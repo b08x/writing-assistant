@@ -225,13 +225,15 @@ export const generateVideosFromPrompt = async (prompt: string, onStatusUpdate?: 
     const modelName = 'veo-3.1-fast-generate-preview';
     try {
         const freshAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        let operation = await freshAi.models.generateVideos({ model: modelName, prompt, config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' } });
+        let operation: any = await freshAi.models.generateVideos({ model: modelName, prompt, config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' } });
         while (!operation.done) {
             await new Promise(r => setTimeout(r, 10000));
             operation = await freshAi.operations.getVideosOperation({operation: operation});
         }
-        if (operation.error) throw new Error(operation.error.message);
-        const uri = operation.response?.generatedVideos?.[0]?.video?.uri;
+        // Fix: Cast operation.error.message to string to avoid 'unknown' type error
+        if (operation.error) throw new Error(String((operation as any).error?.message || "Video generation failed."));
+        // Fix: Use 'any' cast and then 'string' to handle the uri extraction from potentially untyped operation response
+        const uri = (operation.response as any)?.generatedVideos?.[0]?.video?.uri as string;
         const resp = await fetch(`${uri}&key=${process.env.API_KEY}`);
         const blob = await resp.blob();
         return URL.createObjectURL(blob);
