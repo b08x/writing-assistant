@@ -14,7 +14,6 @@ export type StatusUpdateCallback = (message: string) => void;
 
 /**
  * Robust JSON extraction for models that don't support structured output natively.
- * This is the 'Core Adaptation' logic that makes varied LLM outputs compatible.
  */
 function extractJson(text: string): any {
   try {
@@ -31,7 +30,6 @@ function extractJson(text: string): any {
 
 /**
  * Normalizes raw entity/relationship data from third-party LLMs 
- * into our application's internal BeliefState format.
  */
 function adaptToBeliefState(raw: any, prompt: string): BeliefState {
   const rawEntities = Array.isArray(raw.entities) ? raw.entities : [];
@@ -60,18 +58,39 @@ function adaptToBeliefState(raw: any, prompt: string): BeliefState {
   };
 }
 
+/**
+ * Standard OpenAI-compatible requester for multiple providers
+ */
+const standardRequest = async (url: string, key: string, model: string, prompt: string, system?: string) => {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${key}`
+    },
+    body: JSON.stringify({
+      model: model,
+      messages: [
+        ...(system ? [{ role: "system", content: system }] : []),
+        { role: "user", content: prompt }
+      ]
+    })
+  });
+  if (!response.ok) throw new Error(`API error: ${response.statusText}`);
+  const data = await response.json();
+  return data.choices[0].message.content;
+};
+
 export const generateBeliefGraph = async (
   prompt: string,
   mode: 'image' | 'story' | 'video',
   config: ProviderConfig,
   onStatusUpdate?: StatusUpdateCallback
 ): Promise<BeliefState> => {
-  // Gemini uses native adaptation via responseSchema
   if (config.provider === 'gemini') {
     return gemini.parsePromptToBeliefGraph(prompt, mode, onStatusUpdate, config.model);
   }
 
-  // Other providers need manual adaptation
   const systemInstruction = `You are a Belief Graph generator. Output ONLY raw JSON. No conversational text. Format: { "entities": [...], "relationships": [...] }`;
   const userPrompt = `Analyze this prompt for a ${mode}: "${prompt}". Return a Belief Graph in JSON format with entities (name, description, attributes) and relationships.`;
   const userKey = config.apiKeys[config.provider];
@@ -79,8 +98,9 @@ export const generateBeliefGraph = async (
   let responseText = "";
   if (config.provider === 'mistral') responseText = await mistralRequest(userPrompt, config.model, systemInstruction, userKey);
   else if (config.provider === 'openrouter') responseText = await openRouterRequest(userPrompt, config.model, systemInstruction, userKey);
-  else if (config.provider === 'grok') responseText = await grokRequest(userPrompt, config.model, systemInstruction, userKey);
-  else if (config.provider === 'llama') responseText = await openRouterRequest(userPrompt, config.model, systemInstruction, userKey);
+  else if (config.provider === 'brock') responseText = await grokRequest(userPrompt, config.model, systemInstruction, userKey);
+  else if (config.provider === 'broq') responseText = await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt, systemInstruction);
+  else if (config.provider === 'olm') responseText = await standardRequest("http://localhost:11434/v1/chat/completions", userKey, config.model, userPrompt, systemInstruction);
 
   return adaptToBeliefState(extractJson(responseText), prompt);
 };
@@ -102,8 +122,9 @@ export const generateClarifications = async (
   let responseText = "";
   if (config.provider === 'mistral') responseText = await mistralRequest(userPrompt, config.model, undefined, userKey);
   else if (config.provider === 'openrouter') responseText = await openRouterRequest(userPrompt, config.model, undefined, userKey);
-  else if (config.provider === 'grok') responseText = await grokRequest(userPrompt, config.model, undefined, userKey);
-  else if (config.provider === 'llama') responseText = await openRouterRequest(userPrompt, config.model, undefined, userKey);
+  else if (config.provider === 'brock') responseText = await grokRequest(userPrompt, config.model, undefined, userKey);
+  else if (config.provider === 'broq') responseText = await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt);
+  else if (config.provider === 'olm') responseText = await standardRequest("http://localhost:11434/v1/chat/completions", userKey, config.model, userPrompt);
 
   return extractJson(responseText);
 };
@@ -124,6 +145,8 @@ export const refinePrompt = async (
   
   if (config.provider === 'mistral') return await mistralRequest(userPrompt, config.model, undefined, userKey);
   if (config.provider === 'openrouter') return await openRouterRequest(userPrompt, config.model, undefined, userKey);
-  if (config.provider === 'grok') return await grokRequest(userPrompt, config.model, undefined, userKey);
-  return await openRouterRequest(userPrompt, config.model, undefined, userKey);
+  if (config.provider === 'brock') return await grokRequest(userPrompt, config.model, undefined, userKey);
+  if (config.provider === 'broq') return await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt);
+  if (config.provider === 'olm') return await standardRequest("http://localhost:11434/v1/chat/completions", userKey, config.model, userPrompt);
+  return originalPrompt;
 };

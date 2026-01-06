@@ -15,17 +15,19 @@ export type StatusUpdateCallback = (message: string) => void;
  * Helper to perform a minimal "ping" request to OpenAI-compatible endpoints
  */
 const validateOpenAiCompatible = async (url: string, apiKey: string | undefined, model: string): Promise<{ success: boolean; message: string }> => {
-  if (!apiKey) {
+  if (!apiKey && url.includes('localhost') === false) {
     return { success: false, message: "API key missing. Please provide a valid key in settings." };
   }
 
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
+      headers,
       body: JSON.stringify({
         model: model,
         messages: [{ role: 'user', content: 'ping' }],
@@ -76,14 +78,18 @@ export const validateProviderKey = async (provider: ProviderType, model: string,
       url: "https://openrouter.ai/api/v1/chat/completions", 
       key: userKey || process.env.OPENROUTER_API_KEY || process.env.API_KEY 
     },
-    grok: { 
+    brock: { // Grok
       url: "https://api.x.ai/v1/chat/completions", 
       key: userKey || process.env.GROK_API_KEY || process.env.API_KEY 
     },
-    llama: { 
-      url: "https://openrouter.ai/api/v1/chat/completions", 
-      key: userKey || process.env.OPENROUTER_API_KEY || process.env.API_KEY 
+    broq: { // Groq
+      url: "https://api.groq.com/openai/v1/chat/completions",
+      key: userKey || process.env.GROQ_API_KEY || process.env.API_KEY
     },
+    olm: { // Ollama
+      url: "http://localhost:11434/v1/chat/completions",
+      key: userKey || "ollama" // Usually ignored by local Ollama
+    }
   };
 
   const config = configs[provider];
@@ -91,8 +97,7 @@ export const validateProviderKey = async (provider: ProviderType, model: string,
     return { success: false, message: `Unknown provider: ${provider}` };
   }
 
-  // For Llama, use a generic Llama 3 model for the ping if none provided
-  const pingModel = provider === 'llama' ? 'meta-llama/llama-3.1-8b-instruct' : model;
+  const pingModel = model || "gpt-3.5-turbo";
 
   return validateOpenAiCompatible(config.url, config.key, pingModel);
 };

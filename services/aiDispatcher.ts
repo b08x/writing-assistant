@@ -44,8 +44,8 @@ export const generateBeliefGraph = async (
   let responseText = "";
   if (config.provider === 'mistral') responseText = await mistralRequest(userPrompt, config.model, systemInstruction);
   else if (config.provider === 'openrouter') responseText = await openRouterRequest(userPrompt, config.model, systemInstruction);
-  else if (config.provider === 'grok') responseText = await grokRequest(userPrompt, config.model, systemInstruction);
-  else if (config.provider === 'llama') responseText = await openRouterRequest(userPrompt, config.model, systemInstruction); // Llama usually via OpenRouter
+  // Fix: Changed 'grok' to 'brock' to match ProviderType and removed redundant 'llama' check as it's not a valid ProviderType.
+  else if (config.provider === 'brock') responseText = await grokRequest(userPrompt, config.model, systemInstruction);
 
   const raw = extractJson(responseText);
   
@@ -92,8 +92,8 @@ export const generateClarifications = async (
   let responseText = "";
   if (config.provider === 'mistral') responseText = await mistralRequest(userPrompt, config.model);
   else if (config.provider === 'openrouter') responseText = await openRouterRequest(userPrompt, config.model);
-  else if (config.provider === 'grok') responseText = await grokRequest(userPrompt, config.model);
-  else if (config.provider === 'llama') responseText = await openRouterRequest(userPrompt, config.model);
+  // Fix: Changed 'grok' to 'brock' to match ProviderType and removed redundant 'llama' check as it's not a valid ProviderType.
+  else if (config.provider === 'brock') responseText = await grokRequest(userPrompt, config.model);
 
   return extractJson(responseText);
 };
@@ -113,6 +113,7 @@ export const refinePrompt = async (
   
   if (config.provider === 'mistral') return await mistralRequest(userPrompt, config.model);
   if (config.provider === 'openrouter') return await openRouterRequest(userPrompt, config.model);
-  if (config.provider === 'grok') return await grokRequest(userPrompt, config.model);
+  // Fix: Changed 'grok' to 'brock' to match ProviderType.
+  if (config.provider === 'brock') return await grokRequest(userPrompt, config.model);
   return await openRouterRequest(userPrompt, config.model);
 };
