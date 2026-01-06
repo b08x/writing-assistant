@@ -422,7 +422,8 @@ const getEdgePath = (
     return { path, labelX, labelY };
 };
 
-const truncate = (str: string, maxLength: number) => {
+const truncate = (str: string | undefined | null, maxLength: number) => {
+    if (!str) return '';
     if (str.length <= maxLength) return str;
     return str.substring(0, maxLength) + '...';
 };
@@ -944,7 +945,7 @@ const BeliefGraph: React.FC<BeliefGraphProps> = ({
 
                         const isSelected = selectedRel?.rel.source === rel.source && selectedRel?.rel.target === rel.target && selectedRel?.rel.label === rel.label;
                         const isModified = pendingRelationshipUpdates[`${rel.source}:${rel.target}`] !== undefined;
-                        const currentLabel = pendingRelationshipUpdates[`${rel.source}:${rel.target}`] || rel.label;
+                        const currentLabel = pendingRelationshipUpdates[`${rel.source}:${rel.target}`] || rel.label || 'relates to';
 
                         return (
                         <g key={`rel-${i}`} style={{ opacity, transition: 'opacity 0.3s ease-in-out' }}

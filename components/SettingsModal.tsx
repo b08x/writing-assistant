@@ -221,7 +221,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
                 <div className="space-y-4 animate-fade-in">
                     <div className="flex justify-between items-end">
                        <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Ollama Base URL</label>
-                       <span className="text-[10px] font-bold text-slate-400">Default: http://localhost:11434</span>
+                       <span className="text-[10px] font-bold text-slate-400 italic">Enable CORS with OLLAMA_ORIGINS="*"</span>
                     </div>
                     <div className="relative group">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -237,6 +237,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
                         className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400/70"
                       />
                     </div>
+                    <p className="text-[10px] text-slate-500 bg-slate-100 dark:bg-slate-800/50 p-3 rounded-xl leading-relaxed">
+                        If using a remote server or non-localhost address, ensure Ollama is launched with the environment variable <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">OLLAMA_ORIGINS="*"</code> to allow browser requests.
+                    </p>
                 </div>
             )}
 
@@ -258,9 +261,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
               
               <div className="grid gap-3">
                 {currentModels.length === 0 && !isFetchingModels ? (
-                  <div className="text-center py-12 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
+                  <div className="text-center py-12 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl px-6">
                      <p className="text-sm text-slate-400">No models found for this provider.</p>
-                     {config.provider === 'olm' && <p className="text-xs text-slate-500 mt-1">Check if Ollama is running and OLLAMA_BASE_URL is correct.</p>}
+                     {config.provider === 'olm' && <p className="text-xs text-slate-500 mt-2">Could not reach {config.ollamaBaseUrl || 'http://localhost:11434'}. Verify the service is running and CORS is enabled.</p>}
                   </div>
                 ) : (
                   currentModels.map(m => (

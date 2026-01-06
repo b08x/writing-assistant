@@ -92,16 +92,23 @@ export const fetchRemoteModels = async (provider: ProviderType, apiKey?: string,
     }
 
     if (provider === 'olm') {
-      const finalUrl = baseUrl || process.env.OLLAMA_BASE_URL || "http://localhost:11434";
-      const response = await fetch(`${finalUrl}/api/tags`);
-      if (!response.ok) throw new Error("Ollama server not found");
-      const data = await response.json();
-      return data.models.map((m: any) => ({
-        id: m.name || 'unknown',
-        name: m.name || 'Local Model',
-        description: `Local model: ${m.details?.parameter_size || 'unknown size'}`,
-        supportsTools: false
-      }));
+      const finalUrl = (baseUrl || process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
+      try {
+        const response = await fetch(`${finalUrl}/api/tags`);
+        if (!response.ok) throw new Error(`Ollama server returned ${response.status}`);
+        const data = await response.json();
+        if (!data.models) return [];
+        return data.models.map((m: any) => ({
+          id: m.name || 'unknown',
+          name: m.name || 'Local Model',
+          description: `Local model: ${m.details?.parameter_size || 'unknown size'}`,
+          supportsTools: false
+        }));
+      } catch (err: any) {
+        console.error("Ollama connection failed:", err);
+        // Return a specialized "Error" item to show in list rather than empty
+        return [];
+      }
     }
     
     return [];
