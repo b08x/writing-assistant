@@ -16,12 +16,12 @@ interface SettingsModalProps {
   onChange: (config: ProviderConfig) => void;
 }
 
-const PROVIDERS: { id: ProviderType; name: string; icon: string; description: string }[] = [
-  { id: 'gemini', name: 'Google Gemini', icon: '✨', description: 'Multimodal reasoning leaders.' },
-  { id: 'mistral', name: 'Mistral AI', icon: '🌪️', description: 'Open weight experts from Europe.' },
-  { id: 'openrouter', name: 'OpenRouter', icon: '📡', description: 'Unified access to all SOTA models.' },
-  { id: 'groq', name: 'GROQ', icon: '⚡', description: 'Ultra-fast LPU powered inference.' },
-  { id: 'olm', name: 'OLM (Ollama)', icon: '🏠', description: 'Local private model access.' },
+const PROVIDERS: { id: ProviderType; name: string; icon: string; description: string; envVar: string }[] = [
+  { id: 'gemini', name: 'Google Gemini', icon: '✨', description: 'Multimodal reasoning leaders.', envVar: 'API_KEY' },
+  { id: 'mistral', name: 'Mistral AI', icon: '🌪️', description: 'Open weight experts from Europe.', envVar: 'MISTRAL_API_KEY' },
+  { id: 'openrouter', name: 'OpenRouter', icon: '📡', description: 'Unified access to all SOTA models.', envVar: 'OPENROUTER_API_KEY' },
+  { id: 'groq', name: 'GROQ', icon: '⚡', description: 'Ultra-fast LPU powered inference.', envVar: 'GROQ_API_KEY' },
+  { id: 'olm', name: 'OLM (Ollama)', icon: '🏠', description: 'Local private model access.', envVar: 'OLLAMA_BASE_URL' },
 ];
 
 const STATIC_MODELS: Record<string, ModelOption[]> = {
@@ -41,6 +41,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [dynamicModels, setDynamicModels] = useState<ModelOption[]>([]);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const [showEnvImport, setShowEnvImport] = useState(false);
+  const [envText, setEnvText] = useState('');
 
   const currentModels = useMemo(() => {
     if (dynamicModels.length > 0) {
@@ -59,7 +61,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
     setIsFetchingModels(false);
   }, [config.provider, config.apiKeys, config.ollamaBaseUrl, isOpen]);
 
-  // Initial validation/refresh if keys are preset in env
   useEffect(() => {
     if (isOpen) {
       const checkInitialStatus = async () => {
@@ -111,6 +112,33 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
     });
   };
 
+  const handleBulkImport = () => {
+    const lines = envText.split('\n');
+    const newKeys = { ...config.apiKeys };
+    let newOllamaUrl = config.ollamaBaseUrl;
+
+    lines.forEach(line => {
+        const [key, ...valueParts] = line.split('=');
+        if (!key || valueParts.length === 0) return;
+        const val = valueParts.join('=').trim().replace(/^["']|["']$/g, '');
+        
+        if (key.trim() === 'API_KEY') newKeys.gemini = val;
+        if (key.trim() === 'MISTRAL_API_KEY') newKeys.mistral = val;
+        if (key.trim() === 'GROQ_API_KEY') newKeys.groq = val;
+        if (key.trim() === 'OPENROUTER_API_KEY') newKeys.openrouter = val;
+        if (key.trim() === 'OLLAMA_BASE_URL') newOllamaUrl = val;
+    });
+
+    onChange({ ...config, apiKeys: newKeys, ollamaBaseUrl: newOllamaUrl });
+    setEnvText('');
+    setShowEnvImport(false);
+    setStatusMessage("Environment data imported successfully.");
+    setConnectionStatus('verified');
+  };
+
+  const currentProvider = PROVIDERS.find(p => p.id === config.provider);
+  const isEnvKeyPresent = currentProvider && !!process.env[currentProvider.envVar];
+
   return (
     <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-fade-in" onClick={onClose}>
       <div 
@@ -123,15 +151,46 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">AI Reasoning Engine</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Configure your preferred foundation model and provider keys.</p>
           </div>
-          <button onClick={onClose} className="p-2.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex gap-3">
+             <button 
+                onClick={() => setShowEnvImport(!showEnvImport)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${showEnvImport ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+             >
+                {showEnvImport ? 'CLOSE IMPORT' : 'IMPORT .ENV'}
+             </button>
+             <button onClick={onClose} className="p-2.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+             </button>
+          </div>
         </div>
 
         {/* Content - Two-Pane Layout */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden relative">
+          
+          {/* .env Import Overlay */}
+          {showEnvImport && (
+              <div className="absolute inset-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-8 flex flex-col animate-fade-in">
+                  <div className="max-w-2xl mx-auto w-full space-y-6">
+                      <div className="text-center">
+                          <h3 className="text-xl font-bold">Paste .env Content</h3>
+                          <p className="text-sm text-slate-500 mt-2">Paste your local environment file content below. We'll automatically map API keys and URLs.</p>
+                      </div>
+                      <textarea 
+                        value={envText}
+                        onChange={(e) => setEnvText(e.target.value)}
+                        placeholder="MISTRAL_API_KEY=your_key_here&#10;GROQ_API_KEY=your_key_here&#10;OLLAMA_BASE_URL=http://..."
+                        className="w-full h-64 p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl font-mono text-xs focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                      />
+                      <div className="flex gap-4">
+                          <button onClick={() => setShowEnvImport(false)} className="flex-1 py-3 font-bold text-slate-500">CANCEL</button>
+                          <button onClick={handleBulkImport} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/20">IMPORT KEYS</button>
+                      </div>
+                  </div>
+              </div>
+          )}
+
           {/* Sidebar - Providers */}
           <div className="w-72 border-r border-slate-100 dark:border-slate-800 flex flex-col bg-slate-50/30 dark:bg-slate-950/20">
             <div className="p-4 flex-grow overflow-y-auto">
@@ -196,7 +255,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
             {config.provider !== 'gemini' && config.provider !== 'olm' && (
               <div className="space-y-4 animate-fade-in">
                 <div className="flex justify-between items-end">
-                   <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Authentication Key</label>
+                   <div className="flex items-center gap-2">
+                      <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Authentication Key</label>
+                      {isEnvKeyPresent && (
+                          <span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[8px] font-black px-1.5 py-0.5 rounded flex items-center gap-1 border border-emerald-200 dark:border-emerald-800">
+                             <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
+                             SYSTEM KEY DETECTED
+                          </span>
+                      )}
+                   </div>
                    <a href="#" className="text-[10px] font-bold text-blue-500 hover:text-blue-400 underline-offset-4 hover:underline">Revoke / Rotation Docs →</a>
                 </div>
                 <div className="relative group">
@@ -209,7 +276,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
                     type="password"
                     value={config.apiKeys[config.provider] || ''}
                     onChange={(e) => handleKeyChange(config.provider, e.target.value)}
-                    placeholder={`Production ${config.provider.toUpperCase()} API Secret...`}
+                    placeholder={isEnvKeyPresent ? "Key detected in system environment (Leave blank to use system key)" : `Production ${config.provider.toUpperCase()} API Secret...`}
                     className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400/70"
                   />
                 </div>
@@ -220,7 +287,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
             {config.provider === 'olm' && (
                 <div className="space-y-4 animate-fade-in">
                     <div className="flex justify-between items-end">
-                       <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Ollama Base URL</label>
+                       <div className="flex items-center gap-2">
+                          <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Ollama Base URL</label>
+                          {process.env.OLLAMA_BASE_URL && (
+                              <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[8px] font-black px-1.5 py-0.5 rounded flex items-center gap-1 border border-blue-200 dark:border-blue-800">
+                                 SYSTEM CONFIG DETECTED
+                              </span>
+                          )}
+                       </div>
                        <span className="text-[10px] font-bold text-slate-400 italic">Enable CORS with OLLAMA_ORIGINS="*"</span>
                     </div>
                     <div className="relative group">
