@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -495,8 +496,8 @@ const BeliefGraph: React.FC<BeliefGraphProps> = ({
   };
 
   const sceneEntityNames = ['image', 'the image', 'story', 'the story', 'video', 'the video'];
-  const sceneEntity = useMemo(() => data?.entities.find(e => sceneEntityNames.includes(e.name.toLowerCase())), [data]);
-  const objectEntities = useMemo(() => data?.entities.filter(e => !sceneEntityNames.includes(e.name.toLowerCase())) || [], [data]);
+  const sceneEntity = useMemo(() => data?.entities.find(e => e.name && sceneEntityNames.includes(e.name.toLowerCase())), [data]);
+  const objectEntities = useMemo(() => data?.entities.filter(e => e.name && !sceneEntityNames.includes(e.name.toLowerCase())) || [], [data]);
   const nodeDimensions = useMemo(() => {
     const dimensions: {[key: string]: {width: number, height: number}} = {};
     if (data) {
@@ -512,15 +513,17 @@ const BeliefGraph: React.FC<BeliefGraphProps> = ({
     if (!name) return null;
     const lowerName = name.toLowerCase();
     const cleanName = lowerName.replace(/^(the|a|an)\s+/, '').trim();
-    let match = objectEntities.find(e => e.name.toLowerCase() === lowerName);
-    if (!match) match = objectEntities.find(e => e.name.toLowerCase().replace(/^(the|a|an)\s+/, '').trim() === cleanName);
+    let match = objectEntities.find(e => e.name && e.name.toLowerCase() === lowerName);
+    if (!match) match = objectEntities.find(e => e.name && e.name.toLowerCase().replace(/^(the|a|an)\s+/, '').trim() === cleanName);
     if (!match && cleanName.length > 2) {
          match = objectEntities.find(e => {
+             if (!e.name) return false;
              const cleanEntity = e.name.toLowerCase().replace(/^(the|a|an)\s+/, '').trim();
              return cleanEntity.includes(cleanName);
          });
          if (!match) {
              match = objectEntities.find(e => {
+                 if (!e.name) return false;
                  const cleanEntity = e.name.toLowerCase().replace(/^(the|a|an)\s+/, '').trim();
                  return cleanName.includes(cleanEntity) && cleanEntity.length > 2;
              });
@@ -532,6 +535,7 @@ const BeliefGraph: React.FC<BeliefGraphProps> = ({
   const relationships = useMemo(() => {
     if (!data?.relationships) return [];
     const validRels = data.relationships.filter(r =>
+        r.source && r.target &&
         !sceneEntityNames.includes(r.source.toLowerCase()) &&
         !sceneEntityNames.includes(r.target.toLowerCase())
     );
