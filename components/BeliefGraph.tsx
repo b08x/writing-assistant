@@ -498,8 +498,37 @@ const BeliefGraph: React.FC<BeliefGraphProps> = ({
   };
 
   const sceneEntityNames = ['image', 'the image', 'story', 'the story', 'video', 'the video'];
-  const sceneEntity = useMemo(() => data?.entities.find(e => e.name && sceneEntityNames.includes(e.name.toLowerCase())), [data]);
-  const objectEntities = useMemo(() => data?.entities.filter(e => e.name && !sceneEntityNames.includes(e.name.toLowerCase())) || [], [data]);
+  
+  // More robust scene entity detection
+  const sceneEntity = useMemo(() => {
+    if (!data?.entities) return null;
+    const lowerMode = mode.toLowerCase();
+    const targets = lowerMode === 'image' ? ['image', 'the image'] : 
+                    lowerMode === 'story' ? ['story', 'the story'] : 
+                    ['video', 'the video'];
+                    
+    // 1. Precise match
+    let match = data.entities.find(e => e.name && targets.includes(e.name.toLowerCase()));
+    
+    // 2. Contains match
+    if (!match) {
+        match = data.entities.find(e => e.name && e.name.toLowerCase().includes(lowerMode));
+    }
+    
+    // 3. Fallback to any entity that looks like metadata (if in a specific mode)
+    if (!match) {
+        match = data.entities.find(e => e.name && (e.name.toLowerCase().includes('setting') || e.name.toLowerCase().includes('context')));
+    }
+    
+    return match;
+  }, [data, mode]);
+
+  const objectEntities = useMemo(() => {
+      if (!data?.entities) return [];
+      const sEntityName = sceneEntity?.name?.toLowerCase();
+      return data.entities.filter(e => e.name && e.name.toLowerCase() !== sEntityName);
+  }, [data, sceneEntity]);
+
   const nodeDimensions = useMemo(() => {
     const dimensions: {[key: string]: {width: number, height: number}} = {};
     if (data) {
@@ -535,11 +564,12 @@ const BeliefGraph: React.FC<BeliefGraphProps> = ({
   }, [objectEntities]);
 
   const relationships = useMemo(() => {
-    if (!data?.relationships) return [];
+    if (!data?.relationships || !sceneEntity) return [];
+    const sName = sceneEntity.name.toLowerCase();
     const validRels = data.relationships.filter(r =>
         r.source && r.target &&
-        !sceneEntityNames.includes(r.source.toLowerCase()) &&
-        !sceneEntityNames.includes(r.target.toLowerCase())
+        r.source.toLowerCase() !== sName &&
+        r.target.toLowerCase() !== sName
     );
     const uniqueRels: Relationship[] = [];
     const pairSet = new Set<string>();
@@ -556,7 +586,7 @@ const BeliefGraph: React.FC<BeliefGraphProps> = ({
         }
     });
     return uniqueRels;
-  }, [data, getCanonicalName]);
+  }, [data, getCanonicalName, sceneEntity]);
 
   const neighborsOfSelected = useMemo(() => {
     if (!selectedEntity) return null;

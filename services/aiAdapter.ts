@@ -43,6 +43,7 @@ function adaptToBeliefState(raw: any, prompt: string): BeliefState {
         : [],
       attributes: (Array.isArray(e.attributes) ? e.attributes : []).map((a: any) => ({
         ...a,
+        presence_in_prompt: a.presence_in_prompt ?? false,
         value: Array.isArray(a.value) 
           ? a.value.map((v: any) => typeof v === 'string' ? { name: v } : v) 
           : []
@@ -94,8 +95,45 @@ export const generateBeliefGraph = async (
     return gemini.parsePromptToBeliefGraph(prompt, mode, onStatusUpdate, config.model);
   }
 
-  const systemInstruction = `You are a Belief Graph generator. Output ONLY raw JSON. No conversational text. Format: { "entities": [...], "relationships": [...] }`;
-  const userPrompt = `Analyze this prompt for a ${mode}: "${prompt}". Return a Belief Graph in JSON format with entities (name, description, attributes) and relationships.`;
+  let specificInstructions = "";
+  if (mode === 'image') {
+    specificInstructions = `- Always include an entity named "The Image". Attributes: weather, location, time_of_day, atmosphere, camera_angle, style.`;
+  } else if (mode === 'video') {
+    specificInstructions = `- Always include an entity named "The Video". Attributes: camera_movement, lighting, atmosphere, video_style, pacing.`;
+  } else {
+    specificInstructions = `- Always include an entity named "The Story". Attributes: genre, tone, narrative_perspective, pacing, conflict_type.`;
+  }
+
+  const systemInstruction = `You are a SOTA Belief Graph generator. 
+Task: Parse a creative prompt into a structured JSON graph.
+Rules:
+1. Identify all physical and conceptual entities.
+2. ${specificInstructions}
+3. For every attribute, provide 2-3 candidate values in an array.
+4. Set "presence_in_prompt" to true ONLY if the user explicitly mentioned that attribute.
+5. Identify logical relationships (A [label] B).
+6. Output ONLY raw JSON. No markdown backticks.`;
+
+  const userPrompt = `Input Prompt: "${prompt}"
+Mode: ${mode}
+
+Output Format:
+{
+  "entities": [
+    {
+      "name": "string",
+      "presence_in_prompt": boolean,
+      "description": "string",
+      "attributes": [
+        { "name": "string", "presence_in_prompt": boolean, "value": ["option1", "option2"] }
+      ]
+    }
+  ],
+  "relationships": [
+    { "source": "entity_name", "target": "entity_name", "label": "string" }
+  ]
+}`;
+
   const userKey = config.apiKeys[config.provider];
 
   let responseText = "";
@@ -121,7 +159,11 @@ export const generateClarifications = async (
     return gemini.generateClarifications(prompt, askedQuestions, mode, onStatusUpdate, config.model);
   }
 
-  const userPrompt = `Generate 3 clarifying questions with options to help refine this ${mode} prompt: "${prompt}". Already asked: ${askedQuestions.join(', ')}. Return JSON array of objects with 'question' and 'options'.`;
+  const userPrompt = `Analyze this ${mode} prompt: "${prompt}". 
+Generate 3 expert clarifying questions to help make it more detailed. 
+Each question must have 3-4 options. 
+Already asked: ${askedQuestions.join(', ')}. 
+Return ONLY a JSON array of objects: [{"question": "...", "options": ["...", "..."]}]`;
   const userKey = config.apiKeys[config.provider];
   
   let responseText = "";
@@ -147,7 +189,11 @@ export const refinePrompt = async (
     return gemini.refinePromptWithAllUpdates(originalPrompt, clarifications, graphUpdates, onStatusUpdate, config.model);
   }
 
-  const userPrompt = `Original: ${originalPrompt}. Edits: ${JSON.stringify(graphUpdates)}. Answers: ${JSON.stringify(clarifications)}. Output only the new refined prompt text. No conversational filler.`;
+  const userPrompt = `Refine this prompt.
+Original: ${originalPrompt}. 
+Edits from Belief Graph: ${JSON.stringify(graphUpdates)}. 
+Clarification answers: ${JSON.stringify(clarifications)}. 
+Output ONLY the new refined prompt text. Keep the same creative spirit but incorporate the new details seamlessly.`;
   const userKey = config.apiKeys[config.provider];
   
   if (config.provider === 'mistral') return await mistralRequest(userPrompt, config.model, undefined, userKey);
@@ -172,7 +218,8 @@ export const generateStory = async (
     return gemini.generateStoryFromPrompt(prompt, onStatusUpdate, config.model);
   }
   
-  const userPrompt = `Write a short, creative story based on: "${prompt}"`;
+  const userPrompt = `Write a high-quality creative narrative based on the following prompt. Use evocative language and maintain high internal consistency.
+Prompt: "${prompt}"`;
   const userKey = config.apiKeys[config.provider];
 
   if (config.provider === 'mistral') return await mistralRequest(userPrompt, config.model, undefined, userKey);
