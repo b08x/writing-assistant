@@ -61,4 +61,5 @@ export interface ProviderConfig {
   provider: ProviderType;
   model: string;
   apiKeys: Record<ProviderType, string>;
+  ollamaBaseUrl?: string;
 }

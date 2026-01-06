@@ -68,6 +68,10 @@ export const generateBeliefGraph = async (
   if (config.provider === 'mistral') responseText = await mistralRequest(userPrompt, config.model, systemInstruction, userKey);
   else if (config.provider === 'openrouter') responseText = await openRouterRequest(userPrompt, config.model, systemInstruction, userKey);
   else if (config.provider === 'groq') responseText = await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey || process.env.GROQ_API_KEY || '', config.model, userPrompt, systemInstruction);
+  else if (config.provider === 'olm') {
+    const baseUrl = config.ollamaBaseUrl || process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+    responseText = await standardRequest(`${baseUrl}/v1/chat/completions`, userKey, config.model, userPrompt, systemInstruction);
+  }
 
   const raw = extractJson(responseText);
   
@@ -116,6 +120,10 @@ export const generateClarifications = async (
   if (config.provider === 'mistral') responseText = await mistralRequest(userPrompt, config.model, undefined, userKey);
   else if (config.provider === 'openrouter') responseText = await openRouterRequest(userPrompt, config.model, undefined, userKey);
   else if (config.provider === 'groq') responseText = await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey || process.env.GROQ_API_KEY || '', config.model, userPrompt);
+  else if (config.provider === 'olm') {
+    const baseUrl = config.ollamaBaseUrl || process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+    responseText = await standardRequest(`${baseUrl}/v1/chat/completions`, userKey, config.model, userPrompt);
+  }
 
   return extractJson(responseText);
 };
@@ -137,5 +145,9 @@ export const refinePrompt = async (
   if (config.provider === 'mistral') return await mistralRequest(userPrompt, config.model, undefined, userKey);
   if (config.provider === 'openrouter') return await openRouterRequest(userPrompt, config.model, undefined, userKey);
   if (config.provider === 'groq') return await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey || process.env.GROQ_API_KEY || '', config.model, userPrompt);
+  if (config.provider === 'olm') {
+    const baseUrl = config.ollamaBaseUrl || process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+    return await standardRequest(`${baseUrl}/v1/chat/completions`, userKey, config.model, userPrompt);
+  }
   return await openRouterRequest(userPrompt, config.model, undefined, userKey);
 };

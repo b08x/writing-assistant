@@ -14,7 +14,7 @@ const FALLBACK_GEMINI_MODELS: ModelOption[] = [
   { id: 'gemini-3-pro-image-preview', name: 'Gemini 3 Pro Image', description: 'High-fidelity visual generation engine.', supportsTools: true },
 ];
 
-export const fetchRemoteModels = async (provider: ProviderType, apiKey?: string): Promise<ModelOption[]> => {
+export const fetchRemoteModels = async (provider: ProviderType, apiKey?: string, baseUrl?: string): Promise<ModelOption[]> => {
   try {
     if (provider === 'openrouter') {
       const key = apiKey || process.env.OPENROUTER_API_KEY;
@@ -92,8 +92,8 @@ export const fetchRemoteModels = async (provider: ProviderType, apiKey?: string)
     }
 
     if (provider === 'olm') {
-      const baseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
-      const response = await fetch(`${baseUrl}/api/tags`);
+      const finalUrl = baseUrl || process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+      const response = await fetch(`${finalUrl}/api/tags`);
       if (!response.ok) throw new Error("Ollama server not found");
       const data = await response.json();
       return data.models.map((m: any) => ({

@@ -52,12 +52,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
   const refreshModels = useCallback(async () => {
     if (!isOpen) return;
     setIsFetchingModels(true);
-    const models = await fetchRemoteModels(config.provider, config.apiKeys[config.provider]);
+    const models = await fetchRemoteModels(config.provider, config.apiKeys[config.provider], config.ollamaBaseUrl);
     if (models && models.length > 0) {
       setDynamicModels(models);
     }
     setIsFetchingModels(false);
-  }, [config.provider, config.apiKeys, isOpen]);
+  }, [config.provider, config.apiKeys, config.ollamaBaseUrl, isOpen]);
 
   // Initial validation/refresh if keys are preset in env
   useEffect(() => {
@@ -101,6 +101,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
     onChange({
       ...config,
       apiKeys: { ...config.apiKeys, [provider]: key }
+    });
+  };
+
+  const handleOllamaBaseUrlChange = (url: string) => {
+    onChange({
+      ...config,
+      ollamaBaseUrl: url
     });
   };
 
@@ -186,7 +193,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
           {/* Main Area */}
           <div className="flex-1 overflow-y-auto p-8 space-y-10 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
             {/* API Key Section */}
-            {config.provider !== 'gemini' && (
+            {config.provider !== 'gemini' && config.provider !== 'olm' && (
               <div className="space-y-4 animate-fade-in">
                 <div className="flex justify-between items-end">
                    <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Authentication Key</label>
@@ -207,6 +214,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
                   />
                 </div>
               </div>
+            )}
+
+            {/* Ollama Configuration Section */}
+            {config.provider === 'olm' && (
+                <div className="space-y-4 animate-fade-in">
+                    <div className="flex justify-between items-end">
+                       <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Ollama Base URL</label>
+                       <span className="text-[10px] font-bold text-slate-400">Default: http://localhost:11434</span>
+                    </div>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <svg className="h-5 w-5 text-slate-400 group-focus-within:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                      </div>
+                      <input
+                        type="text"
+                        value={config.ollamaBaseUrl || 'http://localhost:11434'}
+                        onChange={(e) => handleOllamaBaseUrlChange(e.target.value)}
+                        placeholder="http://localhost:11434"
+                        className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400/70"
+                      />
+                    </div>
+                </div>
             )}
 
             {/* Model Selection Section */}

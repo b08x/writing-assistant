@@ -52,7 +52,8 @@ function App() {
       openrouter: '',
       groq: '',
       olm: ''
-    }
+    },
+    ollamaBaseUrl: 'http://localhost:11434'
   });
 
   const modeRef = useRef<Mode>(mode);
