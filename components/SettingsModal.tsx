@@ -59,14 +59,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
     setIsFetchingModels(false);
   }, [config.provider, config.apiKeys, isOpen]);
 
+  // Initial validation/refresh if keys are preset in env
   useEffect(() => {
-    setConnectionStatus('idle');
-    setStatusMessage(null);
-    setDynamicModels([]);
-    
-    // Auto-fetch if key might be available
-    refreshModels();
-  }, [config.provider, refreshModels]);
+    if (isOpen) {
+      const checkInitialStatus = async () => {
+        const currentKey = config.apiKeys[config.provider];
+        const envKey = (config.provider === 'gemini') ? process.env.API_KEY : 
+                      (config.provider === 'mistral') ? process.env.MISTRAL_API_KEY :
+                      (config.provider === 'groq') ? process.env.GROQ_API_KEY :
+                      (config.provider === 'openrouter') ? process.env.OPENROUTER_API_KEY : null;
+        
+        if (currentKey || envKey || config.provider === 'olm') {
+          refreshModels();
+        }
+      };
+      checkInitialStatus();
+    }
+  }, [isOpen, config.provider, refreshModels]);
 
   if (!isOpen) return null;
 
@@ -124,7 +133,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
                 {PROVIDERS.map(p => (
                   <button
                     key={p.id}
-                    onClick={() => onChange({ ...config, provider: p.id, model: (STATIC_MODELS[p.id]?.[0].id || config.model) })}
+                    onClick={() => {
+                        setDynamicModels([]);
+                        onChange({ ...config, provider: p.id, model: (STATIC_MODELS[p.id]?.[0].id || config.model) });
+                    }}
                     className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-all ${
                       config.provider === p.id 
                       ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/20' 
@@ -217,7 +229,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
                 {currentModels.length === 0 && !isFetchingModels ? (
                   <div className="text-center py-12 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
                      <p className="text-sm text-slate-400">No models found for this provider.</p>
-                     {config.provider === 'olm' && <p className="text-xs text-slate-500 mt-1">Make sure Ollama is running locally on port 11434.</p>}
+                     {config.provider === 'olm' && <p className="text-xs text-slate-500 mt-1">Check if Ollama is running and OLLAMA_BASE_URL is correct.</p>}
                   </div>
                 ) : (
                   currentModels.map(m => (

@@ -17,6 +17,7 @@ const FALLBACK_GEMINI_MODELS: ModelOption[] = [
 export const fetchRemoteModels = async (provider: ProviderType, apiKey?: string): Promise<ModelOption[]> => {
   try {
     if (provider === 'openrouter') {
+      const key = apiKey || process.env.OPENROUTER_API_KEY;
       const response = await fetch("https://openrouter.ai/api/v1/models");
       if (!response.ok) throw new Error("Failed to fetch OpenRouter models");
       const data = await response.json();
@@ -55,9 +56,10 @@ export const fetchRemoteModels = async (provider: ProviderType, apiKey?: string)
     }
 
     if (provider === 'mistral') {
-      if (!apiKey) return [];
+      const key = apiKey || process.env.MISTRAL_API_KEY;
+      if (!key) return [];
       const response = await fetch("https://api.mistral.ai/v1/models", {
-        headers: { "Authorization": `Bearer ${apiKey}` }
+        headers: { "Authorization": `Bearer ${key}` }
       });
       if (!response.ok) throw new Error("Failed to fetch Mistral models");
       const data = await response.json();
@@ -74,9 +76,10 @@ export const fetchRemoteModels = async (provider: ProviderType, apiKey?: string)
     }
 
     if (provider === 'groq') {
-      if (!apiKey) return [];
+      const key = apiKey || process.env.GROQ_API_KEY;
+      if (!key) return [];
       const response = await fetch("https://api.groq.com/openai/v1/models", {
-        headers: { "Authorization": `Bearer ${apiKey}` }
+        headers: { "Authorization": `Bearer ${key}` }
       });
       if (!response.ok) throw new Error("Failed to fetch Groq models");
       const data = await response.json();
@@ -89,8 +92,9 @@ export const fetchRemoteModels = async (provider: ProviderType, apiKey?: string)
     }
 
     if (provider === 'olm') {
-      const response = await fetch("http://localhost:11434/api/tags");
-      if (!response.ok) throw new Error("Ollama local server not found");
+      const baseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+      const response = await fetch(`${baseUrl}/api/tags`);
+      if (!response.ok) throw new Error("Ollama server not found");
       const data = await response.json();
       return data.models.map((m: any) => ({
         id: m.name || 'unknown',

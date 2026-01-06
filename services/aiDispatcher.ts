@@ -60,14 +60,14 @@ export const generateBeliefGraph = async (
     return gemini.parsePromptToBeliefGraph(prompt, mode, onStatusUpdate, config.model);
   }
 
-  const systemInstruction = `You are a Belief Graph generator. Output ONLY raw JSON. No conversational text.`;
+  const systemInstruction = `You are a Belief Graph generator. Output ONLY raw JSON. No conversational text. Format: { "entities": [...], "relationships": [...] }`;
   const userPrompt = `Analyze this prompt for a ${mode}: "${prompt}". Return a Belief Graph in JSON format with entities (name, description, attributes) and relationships.`;
   const userKey = config.apiKeys[config.provider];
 
   let responseText = "";
   if (config.provider === 'mistral') responseText = await mistralRequest(userPrompt, config.model, systemInstruction, userKey);
   else if (config.provider === 'openrouter') responseText = await openRouterRequest(userPrompt, config.model, systemInstruction, userKey);
-  else if (config.provider === 'groq') responseText = await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt, systemInstruction);
+  else if (config.provider === 'groq') responseText = await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey || process.env.GROQ_API_KEY || '', config.model, userPrompt, systemInstruction);
 
   const raw = extractJson(responseText);
   
@@ -115,7 +115,7 @@ export const generateClarifications = async (
   let responseText = "";
   if (config.provider === 'mistral') responseText = await mistralRequest(userPrompt, config.model, undefined, userKey);
   else if (config.provider === 'openrouter') responseText = await openRouterRequest(userPrompt, config.model, undefined, userKey);
-  else if (config.provider === 'groq') responseText = await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt);
+  else if (config.provider === 'groq') responseText = await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey || process.env.GROQ_API_KEY || '', config.model, userPrompt);
 
   return extractJson(responseText);
 };
@@ -136,6 +136,6 @@ export const refinePrompt = async (
 
   if (config.provider === 'mistral') return await mistralRequest(userPrompt, config.model, undefined, userKey);
   if (config.provider === 'openrouter') return await openRouterRequest(userPrompt, config.model, undefined, userKey);
-  if (config.provider === 'groq') return await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt);
+  if (config.provider === 'groq') return await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey || process.env.GROQ_API_KEY || '', config.model, userPrompt);
   return await openRouterRequest(userPrompt, config.model, undefined, userKey);
 };
