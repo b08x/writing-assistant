@@ -50,8 +50,7 @@ function App() {
       gemini: '',
       mistral: '',
       openrouter: '',
-      brock: '',
-      broq: '',
+      groq: '',
       olm: ''
     }
   });

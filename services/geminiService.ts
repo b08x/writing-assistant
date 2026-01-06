@@ -55,7 +55,8 @@ const validateOpenAiCompatible = async (url: string, apiKey: string | undefined,
 export const validateProviderKey = async (provider: ProviderType, model: string, userKey?: string): Promise<{ success: boolean; message: string }> => {
   if (provider === 'gemini') {
     try {
-      const validationAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const key = userKey || process.env.API_KEY;
+      const validationAi = new GoogleGenAI({ apiKey: key || '' });
       await validationAi.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: 'ping',
@@ -78,11 +79,7 @@ export const validateProviderKey = async (provider: ProviderType, model: string,
       url: "https://openrouter.ai/api/v1/chat/completions", 
       key: userKey || process.env.OPENROUTER_API_KEY || process.env.API_KEY 
     },
-    brock: { // Grok
-      url: "https://api.x.ai/v1/chat/completions", 
-      key: userKey || process.env.GROK_API_KEY || process.env.API_KEY 
-    },
-    broq: { // Groq
+    groq: { 
       url: "https://api.groq.com/openai/v1/chat/completions",
       key: userKey || process.env.GROQ_API_KEY || process.env.API_KEY
     },

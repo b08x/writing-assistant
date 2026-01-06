@@ -98,8 +98,7 @@ export const generateBeliefGraph = async (
   let responseText = "";
   if (config.provider === 'mistral') responseText = await mistralRequest(userPrompt, config.model, systemInstruction, userKey);
   else if (config.provider === 'openrouter') responseText = await openRouterRequest(userPrompt, config.model, systemInstruction, userKey);
-  else if (config.provider === 'brock') responseText = await grokRequest(userPrompt, config.model, systemInstruction, userKey);
-  else if (config.provider === 'broq') responseText = await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt, systemInstruction);
+  else if (config.provider === 'groq') responseText = await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt, systemInstruction);
   else if (config.provider === 'olm') responseText = await standardRequest("http://localhost:11434/v1/chat/completions", userKey, config.model, userPrompt, systemInstruction);
 
   return adaptToBeliefState(extractJson(responseText), prompt);
@@ -122,8 +121,7 @@ export const generateClarifications = async (
   let responseText = "";
   if (config.provider === 'mistral') responseText = await mistralRequest(userPrompt, config.model, undefined, userKey);
   else if (config.provider === 'openrouter') responseText = await openRouterRequest(userPrompt, config.model, undefined, userKey);
-  else if (config.provider === 'brock') responseText = await grokRequest(userPrompt, config.model, undefined, userKey);
-  else if (config.provider === 'broq') responseText = await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt);
+  else if (config.provider === 'groq') responseText = await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt);
   else if (config.provider === 'olm') responseText = await standardRequest("http://localhost:11434/v1/chat/completions", userKey, config.model, userPrompt);
 
   return extractJson(responseText);
@@ -145,8 +143,7 @@ export const refinePrompt = async (
   
   if (config.provider === 'mistral') return await mistralRequest(userPrompt, config.model, undefined, userKey);
   if (config.provider === 'openrouter') return await openRouterRequest(userPrompt, config.model, undefined, userKey);
-  if (config.provider === 'brock') return await grokRequest(userPrompt, config.model, undefined, userKey);
-  if (config.provider === 'broq') return await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt);
+  if (config.provider === 'groq') return await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt);
   if (config.provider === 'olm') return await standardRequest("http://localhost:11434/v1/chat/completions", userKey, config.model, userPrompt);
   return originalPrompt;
 };

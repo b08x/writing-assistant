@@ -44,7 +44,7 @@ export type GraphUpdate =
   | { type: 'attribute'; entity: string; attribute: string; value: string }
   | { type: 'relationship'; source: string; target: string; oldLabel: string; newLabel: string };
 
-export type ProviderType = 'gemini' | 'mistral' | 'openrouter' | 'brock' | 'broq' | 'olm';
+export type ProviderType = 'gemini' | 'mistral' | 'openrouter' | 'groq' | 'olm';
 
 export type ConnectionStatus = 'idle' | 'verifying' | 'verified' | 'error';
 

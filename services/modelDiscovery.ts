@@ -16,12 +16,45 @@ export const fetchRemoteModels = async (provider: ProviderType, apiKey?: string)
         id: m.id,
         name: m.name,
         description: m.description || "No description provided.",
-        supportsTools: true, // Most modern models on OpenRouter support tools
+        supportsTools: true,
         isRecommended: m.id.includes('claude-3.5') || m.id.includes('gpt-4o')
       }));
     }
 
-    if (provider === 'broq') { // Groq
+    if (provider === 'gemini') {
+      const key = apiKey || process.env.API_KEY;
+      if (!key) return [];
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+      if (!response.ok) throw new Error("Failed to fetch Gemini models");
+      const data = await response.json();
+      return data.models
+        .filter((m: any) => m.supportedGenerationMethods.includes('generateContent'))
+        .map((m: any) => ({
+          id: m.name.split('/').pop(),
+          name: m.displayName,
+          description: m.description,
+          supportsTools: true,
+          isRecommended: m.name.includes('flash') || m.name.includes('pro')
+        }));
+    }
+
+    if (provider === 'mistral') {
+      if (!apiKey) return [];
+      const response = await fetch("https://api.mistral.ai/v1/models", {
+        headers: { "Authorization": `Bearer ${apiKey}` }
+      });
+      if (!response.ok) throw new Error("Failed to fetch Mistral models");
+      const data = await response.json();
+      return data.data.map((m: any) => ({
+        id: m.id,
+        name: m.id.replace(/-/g, ' ').toUpperCase(),
+        description: "Mistral foundation model.",
+        supportsTools: true,
+        isRecommended: m.id.includes('large')
+      }));
+    }
+
+    if (provider === 'groq') {
       if (!apiKey) return [];
       const response = await fetch("https://api.groq.com/openai/v1/models", {
         headers: { "Authorization": `Bearer ${apiKey}` }
@@ -36,7 +69,7 @@ export const fetchRemoteModels = async (provider: ProviderType, apiKey?: string)
       }));
     }
 
-    if (provider === 'olm') { // Ollama
+    if (provider === 'olm') {
       const response = await fetch("http://localhost:11434/api/tags");
       if (!response.ok) throw new Error("Ollama local server not found");
       const data = await response.json();

@@ -8,7 +8,6 @@ import { BeliefState, Clarification, GraphUpdate, ProviderConfig, ProviderType }
 import * as gemini from './geminiService';
 import { mistralRequest } from './mistralService';
 import { openRouterRequest } from './openRouterService';
-import { grokRequest } from './grokService';
 
 export type StatusUpdateCallback = (message: string) => void;
 
@@ -28,6 +27,29 @@ function extractJson(text: string): any {
   }
 }
 
+/**
+ * Standard OpenAI-compatible requester for multiple providers
+ */
+const standardRequest = async (url: string, key: string, model: string, prompt: string, system?: string) => {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${key}`
+    },
+    body: JSON.stringify({
+      model: model,
+      messages: [
+        ...(system ? [{ role: "system", content: system }] : []),
+        { role: "user", content: prompt }
+      ]
+    })
+  });
+  if (!response.ok) throw new Error(`API error: ${response.statusText}`);
+  const data = await response.json();
+  return data.choices[0].message.content;
+};
+
 export const generateBeliefGraph = async (
   prompt: string,
   mode: 'image' | 'story' | 'video',
@@ -40,12 +62,12 @@ export const generateBeliefGraph = async (
 
   const systemInstruction = `You are a Belief Graph generator. Output ONLY raw JSON. No conversational text.`;
   const userPrompt = `Analyze this prompt for a ${mode}: "${prompt}". Return a Belief Graph in JSON format with entities (name, description, attributes) and relationships.`;
+  const userKey = config.apiKeys[config.provider];
 
   let responseText = "";
-  if (config.provider === 'mistral') responseText = await mistralRequest(userPrompt, config.model, systemInstruction);
-  else if (config.provider === 'openrouter') responseText = await openRouterRequest(userPrompt, config.model, systemInstruction);
-  // Fix: Changed 'grok' to 'brock' to match ProviderType and removed redundant 'llama' check as it's not a valid ProviderType.
-  else if (config.provider === 'brock') responseText = await grokRequest(userPrompt, config.model, systemInstruction);
+  if (config.provider === 'mistral') responseText = await mistralRequest(userPrompt, config.model, systemInstruction, userKey);
+  else if (config.provider === 'openrouter') responseText = await openRouterRequest(userPrompt, config.model, systemInstruction, userKey);
+  else if (config.provider === 'groq') responseText = await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt, systemInstruction);
 
   const raw = extractJson(responseText);
   
@@ -88,12 +110,12 @@ export const generateClarifications = async (
   }
 
   const userPrompt = `Generate 3 clarifying questions with options to help refine this ${mode} prompt: "${prompt}". Already asked: ${askedQuestions.join(', ')}. Return JSON array of objects with 'question' and 'options'.`;
-  
+  const userKey = config.apiKeys[config.provider];
+
   let responseText = "";
-  if (config.provider === 'mistral') responseText = await mistralRequest(userPrompt, config.model);
-  else if (config.provider === 'openrouter') responseText = await openRouterRequest(userPrompt, config.model);
-  // Fix: Changed 'grok' to 'brock' to match ProviderType and removed redundant 'llama' check as it's not a valid ProviderType.
-  else if (config.provider === 'brock') responseText = await grokRequest(userPrompt, config.model);
+  if (config.provider === 'mistral') responseText = await mistralRequest(userPrompt, config.model, undefined, userKey);
+  else if (config.provider === 'openrouter') responseText = await openRouterRequest(userPrompt, config.model, undefined, userKey);
+  else if (config.provider === 'groq') responseText = await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt);
 
   return extractJson(responseText);
 };
@@ -110,10 +132,10 @@ export const refinePrompt = async (
   }
 
   const userPrompt = `Original: ${originalPrompt}. Edits: ${JSON.stringify(graphUpdates)}. Answers: ${JSON.stringify(clarifications)}. Output only the new refined prompt text.`;
-  
-  if (config.provider === 'mistral') return await mistralRequest(userPrompt, config.model);
-  if (config.provider === 'openrouter') return await openRouterRequest(userPrompt, config.model);
-  // Fix: Changed 'grok' to 'brock' to match ProviderType.
-  if (config.provider === 'brock') return await grokRequest(userPrompt, config.model);
-  return await openRouterRequest(userPrompt, config.model);
+  const userKey = config.apiKeys[config.provider];
+
+  if (config.provider === 'mistral') return await mistralRequest(userPrompt, config.model, undefined, userKey);
+  if (config.provider === 'openrouter') return await openRouterRequest(userPrompt, config.model, undefined, userKey);
+  if (config.provider === 'groq') return await standardRequest("https://api.groq.com/openai/v1/chat/completions", userKey, config.model, userPrompt);
+  return await openRouterRequest(userPrompt, config.model, undefined, userKey);
 };

@@ -20,8 +20,7 @@ const PROVIDERS: { id: ProviderType; name: string; icon: string; description: st
   { id: 'gemini', name: 'Google Gemini', icon: '✨', description: 'Multimodal reasoning leaders.' },
   { id: 'mistral', name: 'Mistral AI', icon: '🌪️', description: 'Open weight experts from Europe.' },
   { id: 'openrouter', name: 'OpenRouter', icon: '📡', description: 'Unified access to all SOTA models.' },
-  { id: 'brock', name: 'Brock (xAI)', icon: '🧠', description: 'Real-time context & unfiltered reasoning.' },
-  { id: 'broq', name: 'BROQ (Groq)', icon: '⚡', description: 'Ultra-fast LPU powered inference.' },
+  { id: 'groq', name: 'GROQ', icon: '⚡', description: 'Ultra-fast LPU powered inference.' },
   { id: 'olm', name: 'OLM (Ollama)', icon: '🏠', description: 'Local private model access.' },
 ];
 
@@ -34,10 +33,6 @@ const STATIC_MODELS: Record<string, ModelOption[]> = {
   mistral: [
     { id: 'mistral-large-latest', name: 'Mistral Large 2', description: 'Flagship model with 128k context & deep reasoning.', isRecommended: true, supportsTools: true },
     { id: 'mistral-medium-latest', name: 'Mistral Medium', description: 'Ideal balance between cost and performance.', supportsTools: true },
-  ],
-  brock: [
-    { id: 'grok-2-1212', name: 'Grok-2', description: 'Latest flagship with massive context.', isRecommended: true, supportsTools: true },
-    { id: 'grok-2-mini', name: 'Grok-2 Mini', description: 'Compact and extremely fast reasoning.', supportsTools: true },
   ]
 };
 
@@ -48,7 +43,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
   const [isFetchingModels, setIsFetchingModels] = useState(false);
 
   const currentModels = useMemo(() => {
-    if (dynamicModels.length > 0 && (config.provider === 'openrouter' || config.provider === 'broq' || config.provider === 'olm')) {
+    if (dynamicModels.length > 0) {
       return dynamicModels;
     }
     return STATIC_MODELS[config.provider] || [];
@@ -58,19 +53,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
     if (!isOpen) return;
     setIsFetchingModels(true);
     const models = await fetchRemoteModels(config.provider, config.apiKeys[config.provider]);
-    setDynamicModels(models);
+    if (models && models.length > 0) {
+      setDynamicModels(models);
+    }
     setIsFetchingModels(false);
   }, [config.provider, config.apiKeys, isOpen]);
 
   useEffect(() => {
     setConnectionStatus('idle');
     setStatusMessage(null);
-    // Auto-fetch if it's a dynamic provider
-    if (config.provider === 'openrouter' || config.provider === 'broq' || config.provider === 'olm') {
-      refreshModels();
-    } else {
-      setDynamicModels([]);
-    }
+    setDynamicModels([]);
+    
+    // Auto-fetch if key might be available
+    refreshModels();
   }, [config.provider, refreshModels]);
 
   if (!isOpen) return null;
@@ -80,14 +75,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
     setStatusMessage("Synchronizing with endpoint...");
     
     try {
-      const providerForValidation = config.provider === 'brock' ? 'grok' : (config.provider === 'broq' ? 'llama' : config.provider);
-      // Map back new names to old service names if needed or handle directly
-      const result = await validateProviderKey(providerForValidation as any, config.model, config.apiKeys[config.provider]);
+      const result = await validateProviderKey(config.provider, config.model, config.apiKeys[config.provider]);
       setConnectionStatus(result.success ? 'verified' : 'error');
       setStatusMessage(result.message);
       
-      // If verified and dynamic provider, refresh the list
-      if (result.success && (config.provider === 'openrouter' || config.provider === 'broq' || config.provider === 'olm')) {
+      if (result.success) {
         refreshModels();
       }
     } catch (err: any) {
@@ -132,7 +124,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
                 {PROVIDERS.map(p => (
                   <button
                     key={p.id}
-                    onClick={() => onChange({ ...config, provider: p.id, model: (STATIC_MODELS[p.id]?.[0].id || '') })}
+                    onClick={() => onChange({ ...config, provider: p.id, model: (STATIC_MODELS[p.id]?.[0].id || config.model) })}
                     className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-all ${
                       config.provider === p.id 
                       ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-400/20' 
@@ -209,18 +201,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                  <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Available Models</label>
-                 {(config.provider === 'openrouter' || config.provider === 'broq' || config.provider === 'olm') && (
-                    <button 
-                      onClick={refreshModels}
-                      disabled={isFetchingModels}
-                      className="flex items-center gap-2 text-[10px] font-bold text-blue-500 dark:text-blue-400 hover:text-blue-600 transition-colors uppercase tracking-widest"
-                    >
-                      <svg className={`h-3 w-3 ${isFetchingModels ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      {isFetchingModels ? 'Fetching...' : 'Refresh Models'}
-                    </button>
-                 )}
+                 <button 
+                   onClick={refreshModels}
+                   disabled={isFetchingModels}
+                   className="flex items-center gap-2 text-[10px] font-bold text-blue-500 dark:text-blue-400 hover:text-blue-600 transition-colors uppercase tracking-widest"
+                 >
+                   <svg className={`h-3 w-3 ${isFetchingModels ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                   </svg>
+                   {isFetchingModels ? 'Fetching...' : 'Refresh Models'}
+                 </button>
               </div>
               
               <div className="grid gap-3">
