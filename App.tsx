@@ -282,6 +282,7 @@ function App() {
                     const generatedStory = await generateStoryFromPrompt(currentPrompt, safeGenStatusUpdate, modelConfig.model);
                     if (isGenCurrent()) setStory(generatedStory);
                 } else if (requestMode === 'video') {
+                    // Pre-check for selected API key
                     const win = window as any;
                     if (win.aistudio && win.aistudio.hasSelectedApiKey) {
                         const hasKey = await win.aistudio.hasSelectedApiKey();
@@ -293,12 +294,25 @@ function App() {
                             }
                         }
                     }
-                    const generatedVideo = await generateVideosFromPrompt(currentPrompt, safeGenStatusUpdate);
-                    if (isGenCurrent()) setVideo(generatedVideo);
+                    
+                    try {
+                      const generatedVideo = await generateVideosFromPrompt(currentPrompt, safeGenStatusUpdate);
+                      if (isGenCurrent()) setVideo(generatedVideo);
+                    } catch (videoError: any) {
+                      const errorText = videoError.message || JSON.stringify(videoError);
+                      // Requirement: Check for "Requested entity was not found." specifically
+                      if (errorText.includes("Requested entity was not found")) {
+                        if (isGenCurrent()) {
+                          setRequiresApiKey(true);
+                        }
+                      } else {
+                        throw videoError;
+                      }
+                    }
                 }
             } catch (error: any) {
                 if (isGenCurrent()) {
-                    setGalleryErrors(prev => ({ ...prev, [requestMode]: error.message }));
+                    setGalleryErrors(prev => ({ ...prev, [requestMode]: error.message || "An unexpected error occurred." }));
                 }
             } finally {
                 if (isGenCurrent()) {
