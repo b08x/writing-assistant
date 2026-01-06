@@ -50,9 +50,12 @@ const MODELS: Record<ProviderType, ModelOption[]> = {
   ]
 };
 
+// Finished the implementation and added the default export.
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, onChange }) => {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  const currentModels = useMemo(() => MODELS[config.provider] || [], [config.provider]);
 
   // Reset status when provider changes
   useEffect(() => {
@@ -61,8 +64,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
   }, [config.provider]);
 
   if (!isOpen) return null;
-
-  const currentModels = useMemo(() => MODELS[config.provider] || [], [config.provider]);
 
   const handleTestConnection = async () => {
     setConnectionStatus('verifying');
@@ -160,54 +161,35 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
               {currentModels.map(m => (
                 <button
                   key={m.id}
-                  onClick={() => {
-                    onChange({ ...config, model: m.id });
-                    setConnectionStatus('idle');
-                    setStatusMessage(null);
-                  }}
-                  className={`flex items-center p-4 rounded-xl border transition-all text-left group ${
-                    config.model === m.id
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-sm'
-                    : 'border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900 bg-white dark:bg-gray-900'
+                  onClick={() => onChange({ ...config, model: m.id })}
+                  className={`flex flex-col p-4 rounded-xl border-2 text-left transition-all ${
+                    config.model === m.id 
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md ring-2 ring-blue-500/20' 
+                    : 'border-gray-100 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-gray-900'
                   }`}
                 >
-                  <div className={`w-4 h-4 rounded-full border-2 mr-4 flex-shrink-0 flex items-center justify-center ${config.model === m.id ? 'border-blue-500 bg-blue-500' : 'border-gray-300 dark:border-gray-600'}`}>
-                    {config.model === m.id && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
-                  </div>
-                  <div className="flex-grow">
-                    <div className="flex items-center gap-2">
-                      <span className={`font-semibold ${config.model === m.id ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-100'}`}>
-                        {m.name}
-                      </span>
-                      {m.isRecommended && <span className="text-[10px] bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded font-bold uppercase">PRO</span>}
-                      {m.isBeta && <span className="text-[10px] bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded font-bold uppercase">BETA</span>}
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`font-bold ${config.model === m.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-100'}`}>
+                      {m.name}
+                    </span>
+                    <div className="flex gap-2">
+                       {m.isBeta && <span className="bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">BETA</span>}
+                       {m.isRecommended && <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">RECOMMENDED</span>}
                     </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{m.description}</p>
                   </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{m.description}</p>
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row gap-4 items-center justify-between flex-shrink-0">
-           <div className="flex items-center gap-3">
-             <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg text-blue-600 dark:text-blue-300">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-             </div>
-             <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs">
-                {config.provider === 'gemini' 
-                  ? "Standard Gemini environment keys are managed automatically." 
-                  : `Note: ${config.provider.charAt(0).toUpperCase() + config.provider.slice(1)} integration may require specific platform permissions.`}
-             </p>
-           </div>
+        <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700">
            <button 
-            onClick={onClose}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-8 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-95 w-full sm:w-auto"
+             onClick={onClose}
+             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg hover:shadow-blue-500/25"
            >
-            Done
+             Save Configuration
            </button>
         </div>
       </div>

@@ -4,17 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import { GoogleGenAI, GenerateContentResponse, GenerateImagesResponse, Modality, Type } from "@google/genai";
-import { BeliefState, Clarification, Relationship, Candidate, GraphUpdate, Entity, Attribute, ProviderType } from '../types';
-
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  throw new Error("API_KEY environment variable not set");
-}
-
-// Global instance for standard calls
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
+import { BeliefState, Clarification, GraphUpdate, ProviderType } from '../types';
 
 export type StatusUpdateCallback = (message: string) => void;
 
@@ -120,6 +111,8 @@ export const parsePromptToBeliefGraph = async (
     onStatusUpdate?: StatusUpdateCallback,
     modelName: string = 'gemini-3-pro-preview'
 ): Promise<BeliefState> => {
+    // Create a new instance for each call to ensure the latest API Key is used
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     console.log(`Generating Full Belief Graph using ${modelName} for ${mode}:`, prompt);
 
     let specificInstructions = "";
@@ -247,6 +240,8 @@ export const generateClarifications = async (
     onStatusUpdate?: StatusUpdateCallback,
     modelName: string = 'gemini-3-flash-preview'
 ): Promise<Clarification[]> => {
+    // Create a new instance for each call to ensure the latest API Key is used
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     console.log(`Generating clarifications using ${modelName} for ${mode} mode:`, prompt);
     
     const imagePrompt = `You are an expert in text-to-image prompting. Your goal is to help a user refine their prompt by asking clarifying questions.`;
@@ -306,6 +301,8 @@ export const refinePromptWithAllUpdates = async (
     onStatusUpdate?: StatusUpdateCallback,
     modelName: string = 'gemini-3-flash-preview'
   ): Promise<string> => {
+    // Create a new instance for each call to ensure the latest API Key is used
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     let updatesPromptSection = "";
     if (graphUpdates.length > 0) {
         const graphList = graphUpdates.map((u, i) => u.type === 'attribute' ? `- For entity "${u.entity}", set "${u.attribute}" to "${u.value}".` : `- Change relationship between "${u.source}" and "${u.target}" from "${u.oldLabel}" to "${u.newLabel}".`).join('\n');
@@ -343,6 +340,8 @@ export const generateImagesFromPrompt = async (
 ): Promise<string[]> => {
     console.log("Generating images with model:", modelName);
     const generateOne = async (): Promise<string | null> => {
+        // Local instance for each image generation to handle fresh API key selection
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         try {
             const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
                 model: modelName,
@@ -376,7 +375,7 @@ export const generateVideosFromPrompt = async (
     prompt: string, 
     onStatusUpdate?: StatusUpdateCallback
 ): Promise<string> => {
-    // Note: Video generation is currently fixed to the Veo model per instructions
+    // Local instance for video generation
     const modelName = 'veo-3.1-fast-generate-preview';
     try {
         const freshAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -403,6 +402,8 @@ export const generateStoryFromPrompt = async (
     onStatusUpdate?: StatusUpdateCallback,
     modelName: string = 'gemini-3-pro-preview'
 ): Promise<string> => {
+    // Local instance for story generation
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const storyGenerationPrompt = `Write a short, creative story based on: "${prompt}"`;
     try {
         const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
