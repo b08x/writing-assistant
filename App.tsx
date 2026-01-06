@@ -15,7 +15,7 @@ import {
   generateBeliefGraph,
   generateClarifications,
   refinePrompt
-} from './services/aiDispatcher';
+} from './services/aiAdapter';
 import {
   generateImagesFromPrompt,
   generateStoryFromPrompt,

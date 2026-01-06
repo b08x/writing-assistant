@@ -10,17 +10,50 @@ import { BeliefState, Clarification, GraphUpdate, ProviderType } from '../types'
 export type StatusUpdateCallback = (message: string) => void;
 
 // --- START: Connectivity Validation ---
+
+/**
+ * Helper to perform a minimal "ping" request to OpenAI-compatible endpoints
+ */
+const validateOpenAiCompatible = async (url: string, apiKey: string | undefined, model: string): Promise<{ success: boolean; message: string }> => {
+  if (!apiKey) {
+    return { success: false, message: "API key missing in environment variables." };
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: 'user', content: 'ping' }],
+        max_tokens: 1
+      })
+    });
+
+    if (response.ok) {
+      return { success: true, message: "Connection verified successfully." };
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      return { 
+        success: false, 
+        message: errorData.error?.message || `API returned status ${response.status}: ${response.statusText}` 
+      };
+    }
+  } catch (error: any) {
+    return { success: false, message: error.message || "Network error during validation." };
+  }
+};
+
 /**
  * Validates the connectivity for a specific provider.
- * For Gemini, it performs a real API call.
- * For others, it checks for simulated environment availability.
  */
 export const validateProviderKey = async (provider: ProviderType, model: string): Promise<{ success: boolean; message: string }> => {
   if (provider === 'gemini') {
     try {
-      // Create a fresh instance to ensure the most current key is used
       const validationAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      // Minimal token request to verify connectivity and key validity
       await validationAi.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: 'ping',
@@ -33,15 +66,35 @@ export const validateProviderKey = async (provider: ProviderType, model: string)
     }
   }
 
-  // Simulation for other providers as their SDKs aren't globally available here
-  // and we follow the 'no key prompts' rule.
-  await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network latency
-  
-  // In this environment, we assume only Gemini is natively pre-configured via process.env.API_KEY
-  return { 
-    success: false, 
-    message: `${provider.charAt(0).toUpperCase() + provider.slice(1)} key not found in system environment. Only Gemini is currently auto-configured.` 
+  // Define endpoints and keys for each provider
+  const configs: Record<string, { url: string; key: string | undefined }> = {
+    mistral: { 
+      url: "https://api.mistral.ai/v1/chat/completions", 
+      key: process.env.MISTRAL_API_KEY || process.env.API_KEY 
+    },
+    openrouter: { 
+      url: "https://openrouter.ai/api/v1/chat/completions", 
+      key: process.env.OPENROUTER_API_KEY || process.env.API_KEY 
+    },
+    grok: { 
+      url: "https://api.x.ai/v1/chat/completions", 
+      key: process.env.GROK_API_KEY || process.env.API_KEY 
+    },
+    llama: { 
+      url: "https://openrouter.ai/api/v1/chat/completions", 
+      key: process.env.OPENROUTER_API_KEY || process.env.API_KEY 
+    },
   };
+
+  const config = configs[provider];
+  if (!config) {
+    return { success: false, message: `Unknown provider: ${provider}` };
+  }
+
+  // For Llama, use a generic Llama 3 model for the ping if none provided
+  const pingModel = provider === 'llama' ? 'meta-llama/llama-3.1-8b-instruct' : model;
+
+  return validateOpenAiCompatible(config.url, config.key, pingModel);
 };
 // --- END: Connectivity Validation ---
 

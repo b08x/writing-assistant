@@ -50,8 +50,8 @@ const MODELS: Record<ProviderType, ModelOption[]> = {
   ]
 };
 
-// Finished the implementation and added the default export.
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, onChange }) => {
+  // --- Hooks must be at the top level to satisfy React Rules of Hooks ---
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
@@ -63,6 +63,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
     setStatusMessage(null);
   }, [config.provider]);
 
+  // Handle early return only AFTER hook declarations
   if (!isOpen) return null;
 
   const handleTestConnection = async () => {
@@ -82,38 +83,42 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
   return (
     <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div 
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700 max-h-[90vh]"
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col border border-gray-200 dark:border-gray-800 max-h-[90vh]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-900/50">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-gray-850/50">
           <div>
             <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Model Settings</h2>
             <p className="text-xs text-gray-500 dark:text-gray-400">Choose your preferred AI brain</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <div className="p-6 space-y-8 overflow-y-auto">
+        <div className="p-6 space-y-8 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-800">
           {/* Provider Selection */}
           <div>
-            <label className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 block">1. Select Provider</label>
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4 block">1. Select Provider</label>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {PROVIDERS.map(p => (
                 <button
                   key={p.id}
-                  onClick={() => onChange({ provider: p.id, model: MODELS[p.id][0].id })}
+                  onClick={() => {
+                    onChange({ provider: p.id, model: MODELS[p.id][0].id });
+                    setConnectionStatus('idle');
+                    setStatusMessage(null);
+                  }}
                   className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all group ${
                     config.provider === p.id 
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md ring-2 ring-blue-500/20' 
-                    : 'border-gray-100 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-gray-900'
+                    ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 shadow-[0_0_15px_rgba(59,130,246,0.2)] ring-1 ring-blue-500/20' 
+                    : 'border-gray-100 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-900 bg-white dark:bg-gray-850'
                   }`}
                 >
                   <span className="text-2xl mb-1 group-hover:scale-110 transition-transform">{p.icon}</span>
-                  <span className={`text-xs font-bold ${config.provider === p.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                  <span className={`text-[10px] font-bold uppercase tracking-tight ${config.provider === p.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>
                     {p.name}
                   </span>
                 </button>
@@ -122,7 +127,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
           </div>
 
           {/* Connectivity Status Panel */}
-          <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700 space-y-4">
+          <div className="p-4 bg-gray-50 dark:bg-gray-850 rounded-xl border border-gray-100 dark:border-gray-800 space-y-4">
              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                    <div className={`w-2 h-2 rounded-full ${
@@ -131,24 +136,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
                      connectionStatus === 'verifying' ? 'bg-blue-500 animate-pulse' :
                      'bg-gray-400'
                    }`} />
-                   <span className="text-sm font-bold text-gray-700 dark:text-gray-200 uppercase tracking-tight">
+                   <span className="text-xs font-bold text-gray-700 dark:text-gray-200 uppercase tracking-widest">
                      Connection Health
                    </span>
                 </div>
                 <button 
                   onClick={handleTestConnection}
                   disabled={connectionStatus === 'verifying'}
-                  className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${
+                  className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border uppercase tracking-wider transition-all ${
                     connectionStatus === 'verified' 
-                    ? 'text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30' 
-                    : 'text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-900/50'
+                    ? 'text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/20' 
+                    : 'text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/20 hover:bg-blue-100/50 dark:hover:bg-blue-900/40'
                   } disabled:opacity-50`}
                 >
                   {connectionStatus === 'verifying' ? 'Checking...' : (connectionStatus === 'verified' ? 'Re-verify' : 'Test Connection')}
                 </button>
              </div>
              {statusMessage && (
-               <p className={`text-xs ${connectionStatus === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-gray-500 dark:text-gray-400'}`}>
+               <p className={`text-xs font-medium leading-relaxed ${connectionStatus === 'error' ? 'text-rose-600 dark:text-rose-400' : 'text-gray-500 dark:text-gray-400'}`}>
                  {statusMessage}
                </p>
              )}
@@ -156,7 +161,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
 
           {/* Model Selection */}
           <div className="space-y-4">
-            <label className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block">2. Select Model</label>
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest block">2. Select Model</label>
             <div className="grid gap-3">
               {currentModels.map(m => (
                 <button
@@ -164,30 +169,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, config, 
                   onClick={() => onChange({ ...config, model: m.id })}
                   className={`flex flex-col p-4 rounded-xl border-2 text-left transition-all ${
                     config.model === m.id 
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md ring-2 ring-blue-500/20' 
-                    : 'border-gray-100 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-gray-900'
+                    ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-900/20 shadow-sm ring-1 ring-blue-500/10' 
+                    : 'border-gray-100 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-900 bg-white dark:bg-gray-850'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1.5">
                     <span className={`font-bold ${config.model === m.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-100'}`}>
                       {m.name}
                     </span>
-                    <div className="flex gap-2">
-                       {m.isBeta && <span className="bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">BETA</span>}
-                       {m.isRecommended && <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">RECOMMENDED</span>}
+                    <div className="flex gap-1.5">
+                       {m.isBeta && <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[9px] font-bold px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800 uppercase tracking-tighter">BETA</span>}
+                       {m.isRecommended && <span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 uppercase tracking-tighter">RECOMMENDED</span>}
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{m.description}</p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-normal">{m.description}</p>
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700">
+        <div className="p-6 bg-gray-50 dark:bg-gray-850 border-t border-gray-100 dark:border-gray-800">
            <button 
              onClick={onClose}
-             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg hover:shadow-blue-500/25"
+             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 active:scale-[0.98]"
            >
              Save Configuration
            </button>
