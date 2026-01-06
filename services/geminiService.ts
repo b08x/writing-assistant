@@ -4,16 +4,88 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, Type, FunctionDeclaration } from "@google/genai";
 import { BeliefState, Clarification, GraphUpdate, ProviderType } from '../types';
 
 export type StatusUpdateCallback = (message: string) => void;
 
-// --- START: Connectivity Validation ---
+// --- START: Tool Use Configuration ---
 
 /**
- * Helper to perform a minimal "ping" request to OpenAI-compatible endpoints
+ * Tool: get_creative_context
+ * Provides trending context for different creative modes.
  */
+const getCreativeContextDeclaration: FunctionDeclaration = {
+  name: 'get_creative_context',
+  parameters: {
+    type: Type.OBJECT,
+    description: 'Get current creative trends, style keywords, and composition advice for a specific mode.',
+    properties: {
+      mode: {
+        type: Type.STRING,
+        description: 'The creative mode: "image", "story", or "video".',
+      },
+      topic: {
+        type: Type.STRING,
+        description: 'The main topic of the prompt to narrow down the advice.',
+      }
+    },
+    required: ['mode', 'topic'],
+  },
+};
+
+/**
+ * Tool: search_technical_specs
+ * Returns technical parameters for specific art or narrative styles.
+ */
+const searchTechnicalSpecsDeclaration: FunctionDeclaration = {
+  name: 'search_technical_specs',
+  parameters: {
+    type: Type.OBJECT,
+    description: 'Get deep technical specifications for specific art styles, lens types, or literary genres.',
+    properties: {
+      query: {
+        type: Type.STRING,
+        description: 'The technical term or style name (e.g., "chiaroscuro", "cyberpunk lighting", "hard-boiled noir").',
+      }
+    },
+    required: ['query'],
+  },
+};
+
+/**
+ * Mock tool execution logic
+ */
+const executeTool = async (name: string, args: any): Promise<any> => {
+  console.log(`Executing tool: ${name}`, args);
+  
+  if (name === 'get_creative_context') {
+    const { mode, topic } = args;
+    if (mode === 'image') return { 
+        trends: ["Cinematic lighting", "Hyper-detail", "Minimalist composition"], 
+        advice: `For ${topic}, focus on textures and global illumination.` 
+    };
+    if (mode === 'video') return { 
+        pacing: "Slow pan", 
+        dynamic_elements: ["Particle effects", "Light trails"] 
+    };
+    return { tone: "Evocative", pacing: "Fast-start", hook: `Establish the presence of ${topic} in the first paragraph.` };
+  }
+
+  if (name === 'search_technical_specs') {
+    const { query } = args;
+    if (query.toLowerCase().includes('chiaroscuro')) return "High contrast lighting, deep shadows, single light source, focus on volume.";
+    if (query.toLowerCase().includes('cyberpunk')) return "Neon palette (pink/cyan), high humidity/rain, retro-futurist tech, urban decay.";
+    return `Technical parameters for ${query} focus on balance and structural integrity.`;
+  }
+
+  return { status: "unknown_tool" };
+};
+
+// --- END: Tool Use Configuration ---
+
+// --- START: Connectivity Validation ---
+
 const validateOpenAiCompatible = async (url: string, apiKey: string | undefined, model: string): Promise<{ success: boolean; message: string }> => {
   if (!apiKey && url.includes('localhost') === false) {
     return { success: false, message: "API key missing. Please provide a valid key in settings." };
@@ -49,9 +121,6 @@ const validateOpenAiCompatible = async (url: string, apiKey: string | undefined,
   }
 };
 
-/**
- * Validates the connectivity for a specific provider.
- */
 export const validateProviderKey = async (provider: ProviderType, model: string, userKey?: string): Promise<{ success: boolean; message: string }> => {
   if (provider === 'gemini') {
     try {
@@ -69,7 +138,6 @@ export const validateProviderKey = async (provider: ProviderType, model: string,
     }
   }
 
-  // Define endpoints and keys for each provider
   const configs: Record<string, { url: string; key: string | undefined }> = {
     mistral: { 
       url: "https://api.mistral.ai/v1/chat/completions", 
@@ -83,9 +151,9 @@ export const validateProviderKey = async (provider: ProviderType, model: string,
       url: "https://api.groq.com/openai/v1/chat/completions",
       key: userKey || process.env.GROQ_API_KEY || process.env.API_KEY
     },
-    olm: { // Ollama
+    olm: { 
       url: "http://localhost:11434/v1/chat/completions",
-      key: userKey || "ollama" // Usually ignored by local Ollama
+      key: userKey || "ollama" 
     }
   };
 
@@ -98,7 +166,6 @@ export const validateProviderKey = async (provider: ProviderType, model: string,
 
   return validateOpenAiCompatible(config.url, config.key, pingModel);
 };
-// --- END: Connectivity Validation ---
 
 // --- START: Retry Logic for API Calls ---
 const isRetryableError = (error: any): boolean => {
@@ -155,7 +222,65 @@ const withRetry = async <T>(
   console.error("All retry attempts failed for the request.");
   throw lastError;
 };
-// --- END: Retry Logic for API Calls ---
+
+/**
+ * Handle recursive tool calls
+ */
+const handleContentWithTools = async (
+    ai: GoogleGenAI,
+    modelName: string,
+    contents: any,
+    config: any,
+    onStatusUpdate?: StatusUpdateCallback
+): Promise<GenerateContentResponse> => {
+    let response = await ai.models.generateContent({
+        model: modelName,
+        contents: contents,
+        config: config
+    });
+
+    const maxLoops = 5;
+    let loops = 0;
+
+    // Track full conversation for tools
+    let chatContents = Array.isArray(contents) ? [...contents] : [contents];
+    if (typeof chatContents[0] === 'string') chatContents[0] = { role: 'user', parts: [{ text: chatContents[0] }] };
+
+    while (response.functionCalls && response.functionCalls.length > 0 && loops < maxLoops) {
+        loops++;
+        onStatusUpdate?.(`AI using technical tools... (step ${loops})`);
+        
+        // Add model's previous message with function calls
+        chatContents.push(response.candidates[0].content);
+
+        const functionResponses = [];
+        for (const fc of response.functionCalls) {
+            const result = await executeTool(fc.name, fc.args);
+            functionResponses.push({
+                id: fc.id,
+                name: fc.name,
+                response: { result }
+            });
+        }
+
+        // Add tool results
+        chatContents.push({
+            role: 'tool',
+            parts: functionResponses.map(fr => ({
+                functionResponse: fr
+            }))
+        });
+
+        // Re-generate with tool outputs
+        response = await ai.models.generateContent({
+            model: modelName,
+            contents: chatContents,
+            config: config
+        });
+    }
+
+    return response;
+};
 
 /**
  * Generates the complete Belief Graph.
@@ -166,7 +291,6 @@ export const parsePromptToBeliefGraph = async (
     onStatusUpdate?: StatusUpdateCallback,
     modelName: string = 'gemini-3-pro-preview'
 ): Promise<BeliefState> => {
-    // Create a new instance for each call to ensure the latest API Key is used
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     console.log(`Generating Full Belief Graph using ${modelName} for ${mode}:`, prompt);
 
@@ -194,6 +318,8 @@ export const parsePromptToBeliefGraph = async (
     const generationPrompt = `
     Analyze the prompt and generate a complete **Belief Graph** representing the scene or story.
     Identify all entities, their detailed attributes, and their relationships.
+
+    USE YOUR TOOLS (get_creative_context, search_technical_specs) if the prompt involves specific art styles, complex camera work, or creative themes you need more context for.
 
     Entity Types:
     - **Explicit Entities:** Clearly stated in the prompt (presence_in_prompt: True).
@@ -247,27 +373,27 @@ export const parsePromptToBeliefGraph = async (
     };
 
     try {
-        const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
-            model: modelName,
-            contents: generationPrompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        entities: { type: Type.ARRAY, items: entitySchema },
-                        relationships: { type: Type.ARRAY, items: relationshipSchema }
-                    },
-                    required: ['entities', 'relationships']
-                }
-            }
-        }), 5, 2000, onStatusUpdate, "Belief Graph Generation");
+        const response = await withRetry<GenerateContentResponse>(() => 
+            handleContentWithTools(
+                ai,
+                modelName,
+                generationPrompt,
+                {
+                    responseMimeType: "application/json",
+                    tools: [{ functionDeclarations: [getCreativeContextDeclaration, searchTechnicalSpecsDeclaration] }],
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            entities: { type: Type.ARRAY, items: entitySchema },
+                            relationships: { type: Type.ARRAY, items: relationshipSchema }
+                        },
+                        required: ['entities', 'relationships']
+                    }
+                },
+                onStatusUpdate
+            ), 5, 2000, onStatusUpdate, "Belief Graph Generation");
 
         let jsonText = response.text.trim();
-        if (jsonText.startsWith('```')) {
-            jsonText = jsonText.replace(/^```(json)?/, '').replace(/```$/, '').trim();
-        }
-
         const rawGraph = JSON.parse(jsonText);
         const entities = rawGraph.entities.map((e: any) => ({
             ...e,
@@ -295,9 +421,7 @@ export const generateClarifications = async (
     onStatusUpdate?: StatusUpdateCallback,
     modelName: string = 'gemini-3-flash-preview'
 ): Promise<Clarification[]> => {
-    // Create a new instance for each call to ensure the latest API Key is used
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    console.log(`Generating clarifications using ${modelName} for ${mode} mode:`, prompt);
     
     const imagePrompt = `You are an expert in text-to-image prompting. Your goal is to help a user refine their prompt by asking clarifying questions.`;
     const videoPrompt = `You are an expert in AI video generation prompting. Your goal is to help a user refine their prompt by asking clarifying questions.`;
@@ -338,11 +462,7 @@ Return output as JSON array of objects with 'question' and 'options'.`;
             },
         }), 5, 2000, onStatusUpdate, "Clarification Generation"); 
 
-        let jsonText = response.text.trim();
-        if (jsonText.startsWith('```')) {
-            jsonText = jsonText.replace(/^```(json)?/, '').replace(/```$/, '').trim();
-        }
-        return JSON.parse(jsonText) as Clarification[];
+        return JSON.parse(response.text.trim()) as Clarification[];
     } catch (error) {
         console.error("Error generating clarifications:", error);
         return [];
@@ -356,7 +476,6 @@ export const refinePromptWithAllUpdates = async (
     onStatusUpdate?: StatusUpdateCallback,
     modelName: string = 'gemini-3-flash-preview'
   ): Promise<string> => {
-    // Create a new instance for each call to ensure the latest API Key is used
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     let updatesPromptSection = "";
     if (graphUpdates.length > 0) {
@@ -393,9 +512,7 @@ export const generateImagesFromPrompt = async (
     onStatusUpdate?: StatusUpdateCallback,
     modelName: string = 'gemini-2.5-flash-image'
 ): Promise<string[]> => {
-    console.log("Generating images with model:", modelName);
     const generateOne = async (): Promise<string | null> => {
-        // Local instance for each image generation to handle fresh API key selection
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         try {
             const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
@@ -430,7 +547,6 @@ export const generateVideosFromPrompt = async (
     prompt: string, 
     onStatusUpdate?: StatusUpdateCallback
 ): Promise<string> => {
-    // Local instance for video generation
     const modelName = 'veo-3.1-fast-generate-preview';
     try {
         const freshAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -457,7 +573,6 @@ export const generateStoryFromPrompt = async (
     onStatusUpdate?: StatusUpdateCallback,
     modelName: string = 'gemini-3-pro-preview'
 ): Promise<string> => {
-    // Local instance for story generation
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const storyGenerationPrompt = `Write a short, creative story based on: "${prompt}"`;
     try {

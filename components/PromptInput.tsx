@@ -1,20 +1,24 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { PromptHistoryItem } from '../types';
 
 interface PromptInputProps {
   prompt: string;
   setPrompt: (prompt: string) => void;
   onSubmit: () => void;
-  onAnalyze: () => void; // New prop for analysis only
-  isLoading: boolean; // General loading state (disables inputs)
-  isGenerating: boolean; // Specific generation state (shows spinner)
+  onAnalyze: () => void;
+  isLoading: boolean;
+  isGenerating: boolean;
   isFirstRun: boolean;
   mode: 'image' | 'story' | 'video';
   setMode: (mode: 'image' | 'story' | 'video') => void;
+  history: PromptHistoryItem[];
+  onRemoveFromHistory: (id: string) => void;
 }
 
 const PromptInput: React.FC<PromptInputProps> = ({ 
@@ -26,12 +30,97 @@ const PromptInput: React.FC<PromptInputProps> = ({
   isGenerating, 
   isFirstRun, 
   mode, 
-  setMode 
+  setMode,
+  history,
+  onRemoveFromHistory
 }) => {
+  const [showHistory, setShowHistory] = useState(false);
+  const historyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (historyRef.current && !historyRef.current.contains(event.target as Node)) {
+        setShowHistory(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden flex flex-col transition-colors duration-200">
       <div className="px-4 py-2 md:py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 flex justify-between items-center">
         <h2 className="text-base md:text-lg font-semibold text-gray-700 dark:text-gray-200">Prompt</h2>
+        
+        {/* History Toggle */}
+        <div className="relative" ref={historyRef}>
+          <button 
+            onClick={() => setShowHistory(!showHistory)}
+            className="p-1.5 text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all"
+            title="Prompt History"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+          
+          {showHistory && (
+            <div className="absolute right-0 mt-2 w-80 max-h-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-[500] overflow-hidden flex flex-col">
+              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+                <span className="text-xs font-black uppercase tracking-widest text-slate-500">History</span>
+                <span className="text-[10px] text-slate-400">{history.length} entries</span>
+              </div>
+              <div className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
+                {history.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 text-xs italic">
+                    No history yet.
+                  </div>
+                ) : (
+                  history.map((item) => (
+                    <div 
+                      key={item.id}
+                      className="group flex border-b border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <button 
+                        onClick={() => {
+                          setPrompt(item.text);
+                          setMode(item.mode);
+                          setShowHistory(false);
+                        }}
+                        className="flex-1 text-left p-4 space-y-1"
+                      >
+                        <div className="text-xs text-slate-800 dark:text-slate-200 font-medium line-clamp-2 leading-relaxed">
+                          {item.text}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
+                            item.mode === 'image' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                            item.mode === 'story' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
+                            'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                          }`}>
+                            {item.mode}
+                          </span>
+                          <span className="text-[9px] text-slate-400">
+                            {new Date(item.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </button>
+                      <button 
+                        onClick={() => onRemoveFromHistory(item.id)}
+                        className="px-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                        title="Delete from history"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
       
       <div className="p-3 md:p-5 flex flex-col gap-3 md:gap-4">
@@ -91,7 +180,7 @@ const PromptInput: React.FC<PromptInputProps> = ({
                     }`}
                 >
                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                      </svg>
                     <span>Video</span>
                 </button>

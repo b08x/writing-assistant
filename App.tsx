@@ -21,11 +21,14 @@ import {
   generateStoryFromPrompt,
   generateVideosFromPrompt
 } from './services/geminiService';
-import { BeliefState, Clarification, GraphUpdate, Attribute, ProviderConfig } from './types';
+import { BeliefState, Clarification, GraphUpdate, Attribute, ProviderConfig, PromptHistoryItem } from './types';
 
 type Mode = 'image' | 'story' | 'video';
 type ToolTab = 'clarify' | 'graph' | 'attributes';
 type MobileView = 'editor' | 'preview';
+
+const SETTINGS_STORAGE_KEY = 'proactive_cocreator_settings_v1';
+const HISTORY_STORAGE_KEY = 'proactive_cocreator_history_v1';
 
 function App() {
   const [prompt, setPrompt] = useState('a cat hosting a party for its animal friends');
@@ -42,19 +45,65 @@ function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [mode, setMode] = useState<Mode>('image');
   
-  // Model Settings State
-  const [modelConfig, setModelConfig] = useState<ProviderConfig>({
-    provider: 'gemini',
-    model: 'gemini-3-flash-preview',
-    apiKeys: {
-      gemini: '',
-      mistral: '',
-      openrouter: '',
-      groq: '',
-      olm: ''
-    },
-    ollamaBaseUrl: 'http://localhost:11434'
+  // Model Settings State with persistence
+  const [modelConfig, setModelConfig] = useState<ProviderConfig>(() => {
+    const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse saved settings", e);
+      }
+    }
+    return {
+      provider: 'gemini',
+      model: 'gemini-3-flash-preview',
+      apiKeys: {
+        gemini: '',
+        mistral: '',
+        openrouter: '',
+        groq: '',
+        olm: ''
+      },
+      ollamaBaseUrl: 'http://localhost:11434'
+    };
   });
+
+  // Prompt History State
+  const [promptHistory, setPromptHistory] = useState<PromptHistoryItem[]>(() => {
+    const saved = localStorage.getItem(HISTORY_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Persist settings
+  useEffect(() => {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(modelConfig));
+  }, [modelConfig]);
+
+  // Persist history
+  useEffect(() => {
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(promptHistory));
+  }, [promptHistory]);
+
+  const addToHistory = useCallback((text: string, currentMode: Mode) => {
+    setPromptHistory(prev => {
+      // Don't add duplicate of the exact same prompt if it's the last one
+      if (prev.length > 0 && prev[0].text === text && prev[0].mode === currentMode) {
+        return prev;
+      }
+      const newItem: PromptHistoryItem = {
+        id: crypto.randomUUID(),
+        text,
+        mode: currentMode,
+        timestamp: Date.now()
+      };
+      return [newItem, ...prev].slice(0, 50); // Keep last 50
+    });
+  }, []);
+
+  const removeFromHistory = useCallback((id: string) => {
+    setPromptHistory(prev => prev.filter(item => item.id !== id));
+  }, []);
 
   const modeRef = useRef<Mode>(mode);
   const analysisRequestIdRef = useRef(0);
@@ -82,7 +131,6 @@ function App() {
   const [activeToolTab, setActiveToolTab] = useState<ToolTab>('clarify');
   const [mobileView, setMobileView] = useState<MobileView>('editor');
 
-  // Professional Dark Mode by Default
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [statusNotification, setStatusNotification] = useState<string | null>(null);
 
@@ -97,10 +145,10 @@ function App() {
   useEffect(() => {
       if (isDarkMode) {
           document.documentElement.classList.add('dark');
-          document.body.style.backgroundColor = '#020617'; // Slate-950
+          document.body.style.backgroundColor = '#020617';
       } else {
           document.documentElement.classList.remove('dark');
-          document.body.style.backgroundColor = '#f8fafc'; // Slate-50
+          document.body.style.backgroundColor = '#f8fafc';
       }
   }, [isDarkMode]);
 
@@ -206,6 +254,7 @@ function App() {
         if (requestMode === 'image') setImages([]);
         else if (requestMode === 'story') setStory(null);
         else if (requestMode === 'video') setVideo(null);
+        addToHistory(currentPrompt, requestMode);
     }
     
     setIsOutdated(false); 
@@ -260,7 +309,7 @@ function App() {
         })();
     }
     await Promise.all([analysisPromise, generationPromise]);
-  }, [refreshAnalysis, handleStatusUpdate, modelConfig]);
+  }, [refreshAnalysis, handleStatusUpdate, modelConfig, addToHistory]);
 
   const handlePromptSubmit = useCallback(() => {
     setHasGenerated(true);
@@ -338,7 +387,7 @@ function App() {
                         <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1-1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                     <span className="text-sm font-medium flex-1">{statusNotification}</span>
-                    <button onClick={() => setStatusNotification(null)} className="ml-auto text-amber-600 dark:text-amber-300 p-1 rounded-full hover:bg-amber-100 dark:hover:bg-amber-800"><svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg></button>
+                    <button onClick={() => setStatusNotification(null)} className="ml-auto text-amber-600 dark:text-amber-300 p-1 rounded-full hover:bg-amber-100 dark:hover:bg-amber-800"><svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg></button>
                 </div>
             </div>
         )}
@@ -348,7 +397,17 @@ function App() {
             <div className={`flex flex-col gap-0 bg-white dark:bg-slate-900 xl:rounded-2xl xl:border border-slate-200 dark:border-slate-800 shadow-lg transition-colors duration-200 ${mobileView === 'editor' ? 'flex flex-1' : 'hidden xl:flex'} h-full overflow-y-auto overflow-x-hidden`}>
                 <div className="flex-shrink-0 z-10 border-b border-slate-200 dark:border-slate-800">
                     <PromptInput
-                        prompt={prompt} setPrompt={setPrompt} onSubmit={handlePromptSubmit} onAnalyze={handleAnalyzeOnly} isLoading={isGenerating} isGenerating={isGenerating} isFirstRun={!hasGenerated} mode={mode} setMode={handleModeChange}
+                        prompt={prompt} 
+                        setPrompt={setPrompt} 
+                        onSubmit={handlePromptSubmit} 
+                        onAnalyze={handleAnalyzeOnly} 
+                        isLoading={isGenerating} 
+                        isGenerating={isGenerating} 
+                        isFirstRun={!hasGenerated} 
+                        mode={mode} 
+                        setMode={handleModeChange}
+                        history={promptHistory}
+                        onRemoveFromHistory={removeFromHistory}
                     />
                 </div>
                 <div className="flex flex-shrink-0 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 justify-between items-center pr-2">

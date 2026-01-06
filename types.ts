@@ -40,6 +40,13 @@ export interface Clarification {
   options: string[];
 }
 
+export interface PromptHistoryItem {
+  id: string;
+  text: string;
+  mode: 'image' | 'story' | 'video';
+  timestamp: number;
+}
+
 export type GraphUpdate = 
   | { type: 'attribute'; entity: string; attribute: string; value: string }
   | { type: 'relationship'; source: string; target: string; oldLabel: string; newLabel: string };
