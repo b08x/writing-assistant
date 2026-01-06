@@ -32,7 +32,8 @@ const ThinkingProcess = ({ prompt }: { prompt: string }) => {
     const [step, setStep] = useState(0);
 
     const steps = useMemo(() => {
-        const cleanPrompt = prompt.toLowerCase().replace(/[^\w\s]/g, '');
+        const safePrompt = prompt || '';
+        const cleanPrompt = safePrompt.toLowerCase().replace(/[^\w\s]/g, '');
         const words = cleanPrompt.split(/\s+/).filter(w => w.length > 0);
         
         // Context detection
