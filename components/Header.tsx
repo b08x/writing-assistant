@@ -16,20 +16,27 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ isDarkMode, toggleDarkMode, onShowInfo, onOpenSettings, currentModelName }) => {
   return (
-    <header className="bg-white dark:bg-gray-850 p-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700 shadow-sm transition-colors duration-200">
-      <div className="flex flex-col">
-        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Proactive Co-Creator</h1>
-        {currentModelName && (
-           <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 uppercase tracking-tighter">
-             Model: {currentModelName}
-           </span>
-        )}
+    <header className="bg-white dark:bg-slate-900 px-6 py-4 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 shadow-md z-30 transition-colors duration-200">
+      <div className="flex items-center gap-4">
+        <div className="flex flex-col">
+          <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+            PROACTIVE <span className="text-blue-600 dark:text-blue-400">CO-CREATOR</span>
+          </h1>
+          {currentModelName && (
+             <div className="flex items-center gap-1.5 mt-0.5">
+                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest font-mono">
+                  Engine: {currentModelName}
+                </span>
+             </div>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <button
           onClick={onOpenSettings}
-          className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-          title="Settings"
+          className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700/50 shadow-sm active:scale-95"
+          title="Model Settings"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -38,17 +45,18 @@ const Header: React.FC<HeaderProps> = ({ isDarkMode, toggleDarkMode, onShowInfo,
         </button>
         <button
           onClick={onShowInfo}
-          className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-          title="About & Feedback"
+          className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700/50 shadow-sm active:scale-95"
+          title="System Information"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </button>
+        <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1" />
         <button
           onClick={toggleDarkMode}
-          className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-          title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700/50 shadow-sm active:scale-95"
+          title={isDarkMode ? "Light Mode" : "Dark Mode"}
         >
           {isDarkMode ? (
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

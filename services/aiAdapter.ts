@@ -34,18 +34,27 @@ function extractJson(text: string): any {
  * into our application's internal BeliefState format.
  */
 function adaptToBeliefState(raw: any, prompt: string): BeliefState {
+  const rawEntities = Array.isArray(raw.entities) ? raw.entities : [];
+  const rawRelationships = Array.isArray(raw.relationships) ? raw.relationships : [];
+
   return {
-    entities: (raw.entities || []).map((e: any) => ({
+    entities: rawEntities.map((e: any) => ({
       ...e,
-      alternatives: e.alternatives ? e.alternatives.map((s: string) => ({ name: s })) : [],
-      attributes: (e.attributes || []).map((a: any) => ({
+      alternatives: Array.isArray(e.alternatives) 
+        ? e.alternatives.map((s: any) => typeof s === 'string' ? { name: s } : s) 
+        : [],
+      attributes: (Array.isArray(e.attributes) ? e.attributes : []).map((a: any) => ({
         ...a,
-        value: Array.isArray(a.value) ? a.value.map((v: any) => typeof v === 'string' ? { name: v } : v) : []
+        value: Array.isArray(a.value) 
+          ? a.value.map((v: any) => typeof v === 'string' ? { name: v } : v) 
+          : []
       }))
     })),
-    relationships: (raw.relationships || []).map((r: any) => ({
+    relationships: rawRelationships.map((r: any) => ({
       ...r,
-      alternatives: r.alternatives ? r.alternatives.map((s: string) => ({ name: s })) : []
+      alternatives: Array.isArray(r.alternatives) 
+        ? r.alternatives.map((s: any) => typeof s === 'string' ? { name: s } : s) 
+        : []
     })),
     prompt
   };
