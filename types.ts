@@ -54,9 +54,11 @@ export interface ModelOption {
   description: string;
   isBeta?: boolean;
   isRecommended?: boolean;
+  supportsTools?: boolean;
 }
 
 export interface ProviderConfig {
   provider: ProviderType;
   model: string;
+  apiKeys: Record<ProviderType, string>;
 }

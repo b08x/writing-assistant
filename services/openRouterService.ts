@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-export const openRouterRequest = async (prompt: string, model: string, system?: string): Promise<string> => {
-  const apiKey = process.env.OPENROUTER_API_KEY || process.env.API_KEY;
+export const openRouterRequest = async (prompt: string, model: string, system?: string, userKey?: string): Promise<string> => {
+  const apiKey = userKey || process.env.OPENROUTER_API_KEY || process.env.API_KEY;
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {

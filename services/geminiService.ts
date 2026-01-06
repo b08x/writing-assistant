@@ -16,7 +16,7 @@ export type StatusUpdateCallback = (message: string) => void;
  */
 const validateOpenAiCompatible = async (url: string, apiKey: string | undefined, model: string): Promise<{ success: boolean; message: string }> => {
   if (!apiKey) {
-    return { success: false, message: "API key missing in environment variables." };
+    return { success: false, message: "API key missing. Please provide a valid key in settings." };
   }
 
   try {
@@ -50,7 +50,7 @@ const validateOpenAiCompatible = async (url: string, apiKey: string | undefined,
 /**
  * Validates the connectivity for a specific provider.
  */
-export const validateProviderKey = async (provider: ProviderType, model: string): Promise<{ success: boolean; message: string }> => {
+export const validateProviderKey = async (provider: ProviderType, model: string, userKey?: string): Promise<{ success: boolean; message: string }> => {
   if (provider === 'gemini') {
     try {
       const validationAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -70,19 +70,19 @@ export const validateProviderKey = async (provider: ProviderType, model: string)
   const configs: Record<string, { url: string; key: string | undefined }> = {
     mistral: { 
       url: "https://api.mistral.ai/v1/chat/completions", 
-      key: process.env.MISTRAL_API_KEY || process.env.API_KEY 
+      key: userKey || process.env.MISTRAL_API_KEY || process.env.API_KEY 
     },
     openrouter: { 
       url: "https://openrouter.ai/api/v1/chat/completions", 
-      key: process.env.OPENROUTER_API_KEY || process.env.API_KEY 
+      key: userKey || process.env.OPENROUTER_API_KEY || process.env.API_KEY 
     },
     grok: { 
       url: "https://api.x.ai/v1/chat/completions", 
-      key: process.env.GROK_API_KEY || process.env.API_KEY 
+      key: userKey || process.env.GROK_API_KEY || process.env.API_KEY 
     },
     llama: { 
       url: "https://openrouter.ai/api/v1/chat/completions", 
-      key: process.env.OPENROUTER_API_KEY || process.env.API_KEY 
+      key: userKey || process.env.OPENROUTER_API_KEY || process.env.API_KEY 
     },
   };
 

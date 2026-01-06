@@ -45,7 +45,14 @@ function App() {
   // Model Settings State
   const [modelConfig, setModelConfig] = useState<ProviderConfig>({
     provider: 'gemini',
-    model: 'gemini-3-flash-preview'
+    model: 'gemini-3-flash-preview',
+    apiKeys: {
+      gemini: '',
+      mistral: '',
+      openrouter: '',
+      grok: '',
+      llama: ''
+    }
   });
 
   const modeRef = useRef<Mode>(mode);
